@@ -16,8 +16,6 @@ import java.util.Map;
 
 public class App {
 
-    private static final URI BASE_URI = URI.create("http://localhost:8086/");
-
     private static App INSTANCE;
 
     private final HttpServer server;
@@ -71,6 +69,10 @@ public class App {
 
     public void close() {
         server.stop(0);
+        for (Store store : namespaces.values()) {
+            store.close();
+        }
+        environment.close();
         System.out.println("Server stopped");
     }
 
@@ -84,7 +86,8 @@ public class App {
         ec.setMemoryUsagePercentage(80);
         try {
             final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), ec);
-            final HttpServer server = HttpServerFactory.create(BASE_URI, getResourceConfig());
+            final HttpServer server = HttpServerFactory.create(
+                    URI.create(System.getProperty("dexodus.base.url", "http://localhost:8086/")), getResourceConfig());
             App.INSTANCE = new App(server, environment);
             server.start();
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
