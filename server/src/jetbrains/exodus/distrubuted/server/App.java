@@ -23,7 +23,7 @@ public class App {
 
     private static App INSTANCE;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
-    private static final String NS_IDX_SUFFIX = "#idx";
+    private static final String NS_IDX_SUFFIX = "ns#idx";
 
     private final URI baseURI;
     private final HttpServer server;
@@ -31,7 +31,7 @@ public class App {
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
 
-    public App(URI baseURI, HttpServer server, Environment environment) {
+    public App(URI baseURI, HttpServer server, final Environment environment) {
         this.baseURI = baseURI;
         this.server = server;
         this.environment = environment;
@@ -52,6 +52,7 @@ public class App {
     @SuppressWarnings("unchecked")
     public <T> T computeInTransaction(@NotNull final String ns, @NotNull NamespaceTransactionalComputable<T> computable) {
         final Pair<Store, Store>[] storePair = new Pair[1];
+        final boolean[] localStores = new boolean[]{false};
         final Transaction txn = environment.beginTransaction(new Runnable() {
             @Override
             public void run() {
@@ -63,7 +64,7 @@ public class App {
             public void run() {
                 if (!namespaces.containsKey(ns)) { // don't remember if conflict occurred
                     namespaces.put(ns, storePair[0]);
-                    storePair[0] = null;
+                    localStores[0] = false;
                 }
             }
         });
@@ -73,6 +74,7 @@ public class App {
                     final Store store = environment.openStore(ns, StoreConfiguration.WITHOUT_DUPLICATES, txn);
                     final Store idx = environment.openStore(ns + NS_IDX_SUFFIX, StoreConfiguration.WITH_DUPLICATES, txn);
                     storePair[0] = new Pair<>(store, idx);
+                    localStores[0] = true;
                 }
                 final T result = computable.compute(txn, storePair[0].getFirst(), storePair[0].getSecond(), this);
                 if (txn.flush()) {
@@ -82,7 +84,7 @@ public class App {
             }
         } finally {
             txn.abort();
-            if (storePair[0] != null) {
+            if (localStores[0]) {
                 storePair[0].getFirst().close();
                 storePair[0].getSecond().close();
             }
@@ -91,6 +93,18 @@ public class App {
 
     @NotNull
     public String[] getNamespaces() {
+        return environment.computeInTransaction(new TransactionalComputable<String[]>() {
+            @Override
+            public String[] compute(@NotNull final Transaction txn) {
+                final List<String> storeList = environment.getAllStoreNames(txn);
+                final int size = storeList.size();
+                return size > 0 ? storeList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+            }
+        });
+    }
+
+    @NotNull
+    public String[] getNamespaces(final long timestamp) {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
             public String[] compute(@NotNull final Transaction txn) {
