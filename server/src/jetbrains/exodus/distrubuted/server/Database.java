@@ -46,7 +46,7 @@ public class Database {
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
-        System.out.println("PSOT");
+        System.out.println("POST");
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
