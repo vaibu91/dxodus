@@ -76,7 +76,10 @@ public class Database {
 
     @GET
     @Path("/friends")
-    public String[] doGetFriends() {
-        return App.getInstance().getFriends();
+    public String[] doGetFriends(@QueryParam("friendUri") final String friendUri) {
+        final App app = App.getInstance();
+        final String[] result = app.getFriends();
+        app.addFriends(friendUri);
+        return result;
     }
 }
