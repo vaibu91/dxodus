@@ -55,7 +55,7 @@ public class RemoteConnector {
     }
 
     public ClientResponse put(@NotNull final String url, @NotNull final String ns,
-                              @NotNull final String key, long timeout, @NotNull String value) throws TimeoutException {
+                              @NotNull final String key, @NotNull String value, long timeout) throws TimeoutException {
         return put(url, ns, key, value, timeout, null);
     }
 
@@ -101,7 +101,7 @@ public class RemoteConnector {
         final String val = Long.toBinaryString(System.currentTimeMillis());
         final String url = "http://localhost:8086/";
         final RemoteConnector conn = RemoteConnector.getInstance();
-        System.out.println(conn.put(url, "ns1", "key2", 1000, val).getStatus());
+        System.out.println(conn.put(url, "ns1", "key2", val, 1000).getStatus());
         System.out.println(conn.get(url, "ns1", "key2", 1000));
         System.out.println(Arrays.toString(conn.friends(url, 1000)));
     }
