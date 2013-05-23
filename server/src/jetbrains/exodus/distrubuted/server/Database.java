@@ -24,6 +24,7 @@ public class Database {
 
     @GET
     @Path("/{ns}/{key}")
+    @Produces(MediaType.TEXT_PLAIN)
     public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key,
                         @QueryParam("timeStamp") final Long timeStamp) {
         System.out.println("TS: " + timeStamp);
@@ -45,6 +46,7 @@ public class Database {
     @POST
     @Path("/{ns}/{key}")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_PLAIN)
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
@@ -85,8 +87,7 @@ public class Database {
         if (nextTimeStamp == null) {
             return Response.status(Response.Status.NOT_ACCEPTABLE).build();
         }
-        return Response.created(uriInfo.getBaseUriBuilder().path(Database.class).
-                fragment("{ns}").fragment("{key}").fragment("{timeStamp}").build(ns, key, nextTimeStamp)).build();
+        return Response.ok().build();
     }
 
     @GET

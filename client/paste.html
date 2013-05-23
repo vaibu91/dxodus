@@ -27,7 +27,8 @@
                     withCredentials: true
                 },*/
                 error: function(jqXHR, textStatus, error) {
-                    window.alert(textStatus);
+                    console.info(error.stack);
+                    window.alert(textStatus + ":" + error);
                 }
             });
 
@@ -56,16 +57,17 @@
                     });
                 },
 
-                i: 1,
 
                 generateKey: function() {
-                    return this.i++;
+                    return ("0000" + (Math.random() * Math.pow(36,4) << 0).toString(36)).substr(-4);
                 },
 
                 paste: function() {
                     var key = dexodus.generateKey();
                     this.put("paste", key, $("#paste").val(), function() {
-                        window.location += "#" + key;
+                        var l = window.location.toString();
+                        if (l.indexOf("#") > 0) l = l.substring(0, l.indexOf("#"));
+                        window.location = l + "#" + key;
                         window.location.reload();
                     });
                 }
@@ -84,7 +86,7 @@
             });
 
             $("#newPaste").click(function() {
-                window.location.hash = null;
+                window.location.hash = "";
                 window.location.reload();
             });
 
