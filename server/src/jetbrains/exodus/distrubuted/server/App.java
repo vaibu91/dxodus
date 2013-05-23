@@ -13,16 +13,15 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class App {
 
     private static App INSTANCE;
-    private static final String[] EMPTY_FRIENDS = new String[0];
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final URI baseURI;
     private final HttpServer server;
@@ -82,16 +81,14 @@ public class App {
 
     @NotNull
     public String[] getNamespaces() {
-        final String[][] result = new String[1][];
-        result[0] = EMPTY_FRIENDS;
-        environment.beginTransaction(new Runnable() {
+        return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
-            public void run() {
-                final Set<String> keys = namespaces.keySet();
-                result[0] = keys.toArray(new String[keys.size()]);
+            public String[] compute(@NotNull final Transaction txn) {
+                final List<String> storeList = environment.getAllStoreNames(txn);
+                final int size = storeList.size();
+                return size > 0 ? storeList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
             }
-        }).abort();
-        return result[0];
+        });
     }
 
     public void addFriends(@NotNull final String... friends) {
@@ -113,7 +110,7 @@ public class App {
     public String[] getFriends() {
         final PersistentHashSet<String> friends = this.friends.get();
         if (friends == null) {
-            return EMPTY_FRIENDS;
+            return EMPTY_STRING_ARRAY;
         }
         final PersistentHashSet.ImmutablePersistentHashSet<String> current = friends.getCurrent();
         final String[] result = new String[current.size()];
@@ -173,7 +170,7 @@ public class App {
     private static String[] parseFriends() {
         final String friends = System.getProperty("dexodus.friends");
         if (friends == null) {
-            return EMPTY_FRIENDS;
+            return EMPTY_STRING_ARRAY;
         }
         return friends.split(File.pathSeparator);
     }
