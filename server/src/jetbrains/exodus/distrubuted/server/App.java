@@ -7,6 +7,9 @@ import com.sun.jersey.api.json.JSONConfiguration;
 import com.sun.net.httpserver.HttpServer;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.persistent.PersistentHashSet;
+import jetbrains.exodus.database.ByteIterable;
+import jetbrains.exodus.database.impl.bindings.LongBinding;
+import jetbrains.exodus.database.impl.bindings.StringBinding;
 import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
 import org.jetbrains.annotations.NotNull;
@@ -14,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -29,6 +33,7 @@ public class App {
     private final HttpServer server;
     private final Environment environment;
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
+    private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
     final int friendsToReplicatePut = Integer.getInteger("dexodus.friendsToReplicatePut", 2);
 
@@ -36,6 +41,12 @@ public class App {
         this.baseURI = baseURI;
         this.server = server;
         this.environment = environment;
+        namespacesIdx = environment.computeInTransaction(new TransactionalComputable<Store>() {
+            @Override
+            public Store compute(@NotNull final Transaction txn) {
+                return environment.openStore(NS_IDX_SUFFIX, StoreConfiguration.WITHOUT_DUPLICATES, txn);
+            }
+        });
     }
 
     public URI getBaseURI() {
@@ -48,6 +59,10 @@ public class App {
 
     public Environment getEnvironment() {
         return environment;
+    }
+
+    public Store getNamespacesIdx() {
+        return namespacesIdx;
     }
 
     @SuppressWarnings("unchecked")
@@ -97,9 +112,9 @@ public class App {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
             public String[] compute(@NotNull final Transaction txn) {
-                final List<String> storeList = environment.getAllStoreNames(txn);
-                final int size = storeList.size();
-                return size > 0 ? storeList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+                final List<String> nsList = environment.getAllStoreNames(txn);
+                final int size = nsList.size();
+                return size > 0 ? nsList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
             }
         });
     }
@@ -109,9 +124,19 @@ public class App {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
             public String[] compute(@NotNull final Transaction txn) {
-                final List<String> storeList = environment.getAllStoreNames(txn);
-                final int size = storeList.size();
-                return size > 0 ? storeList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+                final List<String> result = new ArrayList<>();
+                final List<String> nsList = environment.getAllStoreNames(txn);
+                for (final String ns : nsList) {
+                    final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
+                    if (timeStampEntry == null) {
+                        throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
+                    }
+                    if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
+                        result.add(ns);
+                    }
+                }
+                final int size = result.size();
+                return size > 0 ? result.toArray(new String[size]) : EMPTY_STRING_ARRAY;
             }
         });
     }

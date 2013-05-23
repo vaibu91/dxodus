@@ -52,9 +52,10 @@ public class Database {
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
-        System.out.println("POST to " + App.getInstance().getBaseURI().toString());
+        final App app = App.getInstance();
+        System.out.println("POST to " + app.getBaseURI().toString());
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
-        final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
+        final Long nextTimeStamp = app.computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
             public Long compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
                 final long nextTimeStamp = timeStamp == null ? System.currentTimeMillis() : timeStamp;
@@ -83,6 +84,19 @@ public class Database {
                     }
                 }
                 idx.put(txn, LongBinding.longToCompressedEntry(nextTimeStamp), keyBytes);
+
+                // update ns idx
+                final Store namespacesIdx = app.getNamespacesIdx();
+                final ArrayByteIterable nsKey = StringBinding.stringToEntry(ns);
+                final ByteIterable oldTimeStampEntry = namespacesIdx.get(txn, nsKey);
+                if (oldTimeStampEntry != null) {
+                    final long oldNsTimeStamp = LongBinding.compressedEntryToLong(oldTimeStampEntry);
+                    if (oldNsTimeStamp > nextTimeStamp) {
+                        return nextTimeStamp;
+                    }
+                }
+                namespacesIdx.put(txn, nsKey, LongBinding.longToCompressedEntry(nextTimeStamp));
+
                 return nextTimeStamp;
             }
         });
