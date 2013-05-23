@@ -4,6 +4,7 @@ import com.sun.jersey.api.container.httpserver.HttpServerFactory;
 import com.sun.jersey.api.core.ClassNamesResourceConfig;
 import com.sun.jersey.api.core.ResourceConfig;
 import com.sun.net.httpserver.HttpServer;
+import jetbrains.exodus.core.dataStructures.persistent.PersistentHashSet;
 import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
 import org.jetbrains.annotations.NotNull;
@@ -14,14 +15,17 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class App {
 
     private static App INSTANCE;
+    private static final String[] EMPTY_FRIENDS = new String[0];
 
     private final HttpServer server;
     private final Environment environment;
     private final Map<String, Store> namespaces = new HashMap<>();
+    private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
 
     public App(HttpServer server, Environment environment) {
         this.server = server;
@@ -77,11 +81,41 @@ public class App {
         System.out.println("Server stopped");
     }
 
+    public void addFriends(@NotNull final String... friends) {
+        for (; ; ) {
+            final PersistentHashSet<String> oldSet = this.friends.get();
+            final PersistentHashSet<String> newSet = oldSet == null ? new PersistentHashSet<String>() : oldSet.getClone();
+            final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
+            for (final String friend : friends) {
+                mutableSet.add(friend);
+            }
+            mutableSet.endWrite();
+            if (this.friends.compareAndSet(oldSet, newSet)) {
+                break;
+            }
+        }
+    }
+
+    public String[] getFriends() {
+        final PersistentHashSet<String> friends = this.friends.get();
+        if (friends == null) {
+            return EMPTY_FRIENDS;
+        }
+        final PersistentHashSet.ImmutablePersistentHashSet<String> current = friends.getCurrent();
+        final String[] result = new String[current.size()];
+        int i = 0;
+        for (final String friend : current) {
+            result[i++] = friend;
+        }
+        return result;
+    }
+
     public static App getInstance() {
         return INSTANCE;
     }
 
     public static void main(String[] args) {
+
         final EnvironmentConfig ec = new EnvironmentConfig();
         ec.setLogCacheShared(false);
         ec.setMemoryUsagePercentage(80);

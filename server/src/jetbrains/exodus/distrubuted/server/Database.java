@@ -15,6 +15,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+import java.util.Collection;
 
 @Path("")
 @Produces(MediaType.TEXT_PLAIN)
@@ -71,5 +72,10 @@ public class Database {
         }
         return Response.created(uriInfo.getBaseUriBuilder().path(Database.class).
                 fragment("{ns}").fragment("{key}").fragment("{timeStamp}").build(ns, key, nextTimeStamp)).build();
+    }
+
+    @GET
+    public String[] doGetFriends() {
+        return App.getInstance().getFriends();
     }
 }
