@@ -17,6 +17,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+import java.security.SecureRandom;
+import java.util.concurrent.TimeoutException;
 
 @Path("")
 @Produces(MediaType.APPLICATION_JSON)
@@ -27,7 +29,7 @@ public class Database {
     @Produces(MediaType.TEXT_PLAIN)
     public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key,
                         @QueryParam("timeStamp") final Long timeStamp) {
-        System.out.println("TS: " + timeStamp);
+        System.out.println("GET: " + key);
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final ByteIterable valueBytes = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ByteIterable>() {
             @Override
@@ -87,7 +89,32 @@ public class Database {
         if (nextTimeStamp == null) {
             return Response.status(Response.Status.NOT_ACCEPTABLE).build();
         }
+
+        // replicate to friends
+        replicateDoPost(ns, key, value, timeStamp);
+
         return Response.ok().build();
+    }
+
+    private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
+        int replicated = 0;
+        String[] friends = App.getInstance().getFriends();
+        SecureRandom r = new SecureRandom();
+        while (replicated < App.getInstance().friendsToReplicatePut && replicated < friends.length) {
+            int f = r.nextInt(friends.length);
+
+            System.out.println("Replicate put to [" + friends[f] + "]");
+
+            try {
+                RemoteConnector.getInstance().put(friends[f], ns, key, value, 100, timeStamp);
+                replicated++;
+            } catch (TimeoutException e) {
+//                e.printStackTrace();
+                System.out.println("Timeout for [" + friends[f] + "]");
+                // remove bad friend
+                //App.getInstance().addFriends();
+            }
+        }
     }
 
     @GET

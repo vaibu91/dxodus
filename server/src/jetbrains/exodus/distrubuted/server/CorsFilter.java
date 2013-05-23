@@ -19,7 +19,7 @@ public class CorsFilter implements ContainerResponseFilter {
 
     @Override
     public ContainerResponse filter(ContainerRequest request, ContainerResponse response) {
-        System.out.println("filter " + request.getMethod());
+        //System.out.println("filter " + request.getMethod());
 
         if (request.getHeaderValue("Origin") != null) {
             final MultivaluedMap<String, Object> headers = response.getHttpHeaders();

@@ -30,6 +30,7 @@ public class App {
     private final Environment environment;
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
+    final int friendsToReplicatePut = Integer.getInteger("dexodus.friendsToReplicatePut", 2);
 
     public App(URI baseURI, HttpServer server, final Environment environment) {
         this.baseURI = baseURI;
@@ -212,6 +213,6 @@ public class App {
         if (friends == null) {
             return EMPTY_STRING_ARRAY;
         }
-        return friends.split(File.pathSeparator);
+        return friends.split(",");
     }
 }
