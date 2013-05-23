@@ -66,7 +66,7 @@ public class AsyncQuorum {
             }
 
             @Override
-            public void setFutures(@NotNull final Future<T>... f) {
+            public void setFutures(@NotNull final Future... f) {
                 if (!futures.compareAndSet(null, f)) {
                     throw new IllegalStateException("Futures already set");
                 }
@@ -117,7 +117,7 @@ public class AsyncQuorum {
 
     private static interface Context<T> extends Future<T> {
 
-        void setFutures(@NotNull Future<T>... futures);
+        void setFutures(@NotNull final Future... futures);
 
         ITypeListener<T> getListener();
 
@@ -135,7 +135,7 @@ public class AsyncQuorum {
         private final int success;
         private final int fail;
 
-        private Status(T result, int success, int fail) {
+        private Status(@Nullable final T result, final int success, final int fail) {
             this.result = result;
             this.success = success;
             this.fail = fail;
