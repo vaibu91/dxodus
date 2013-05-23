@@ -3,6 +3,7 @@ package jetbrains.exodus.distrubuted.server;
 import com.sun.jersey.api.container.httpserver.HttpServerFactory;
 import com.sun.jersey.api.core.ClassNamesResourceConfig;
 import com.sun.jersey.api.core.ResourceConfig;
+import com.sun.jersey.api.json.JSONConfiguration;
 import com.sun.net.httpserver.HttpServer;
 import jetbrains.exodus.core.dataStructures.persistent.PersistentHashSet;
 import jetbrains.exodus.database.persistence.*;
@@ -148,6 +149,7 @@ public class App {
     public static ResourceConfig getResourceConfig() {
         final ClassNamesResourceConfig cfg = new ClassNamesResourceConfig(Database.class);
         cfg.getContainerResponseFilters().add(0, new CorsFilter());
+        cfg.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
         return cfg;
     }
 }

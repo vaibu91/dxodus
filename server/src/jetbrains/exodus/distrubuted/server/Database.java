@@ -18,7 +18,7 @@ import javax.ws.rs.core.UriInfo;
 import java.util.Collection;
 
 @Path("")
-@Produces(MediaType.TEXT_PLAIN)
+@Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.TEXT_PLAIN)
 public class Database {
 
@@ -47,7 +47,7 @@ public class Database {
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
-        System.out.println("POST");
+        System.out.println("POST to " + App.getInstance().getBaseURI().toString());
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
