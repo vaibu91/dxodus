@@ -19,7 +19,6 @@ import java.util.Collection;
 
 @Path("")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.TEXT_PLAIN)
 public class Database {
 
     @GET
