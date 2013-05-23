@@ -22,14 +22,20 @@ public class App {
     private static App INSTANCE;
     private static final String[] EMPTY_FRIENDS = new String[0];
 
+    private final URI baseURI;
     private final HttpServer server;
     private final Environment environment;
     private final Map<String, Store> namespaces = new HashMap<>();
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
 
-    public App(HttpServer server, Environment environment) {
+    public App(URI baseURI, HttpServer server, Environment environment) {
+        this.baseURI = baseURI;
         this.server = server;
         this.environment = environment;
+    }
+
+    public URI getBaseURI() {
+        return baseURI;
     }
 
     public HttpServer getServer() {
@@ -121,9 +127,9 @@ public class App {
         ec.setMemoryUsagePercentage(80);
         try {
             final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), ec);
-            final HttpServer server = HttpServerFactory.create(
-                    URI.create(System.getProperty("dexodus.base.url", "http://localhost:8086/")), getResourceConfig());
-            App.INSTANCE = new App(server, environment);
+            final URI baseURI = URI.create(System.getProperty("dexodus.base.url", "http://localhost:8086/"));
+            final HttpServer server = HttpServerFactory.create(baseURI, getResourceConfig());
+            App.INSTANCE = new App(baseURI, server, environment);
             server.start();
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 @Override
