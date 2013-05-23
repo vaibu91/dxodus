@@ -23,7 +23,7 @@ public class CorsFilter implements ContainerResponseFilter {
 
         if (request.getHeaderValue("Origin") != null) {
             final MultivaluedMap<String, Object> headers = response.getHttpHeaders();
-            headers.add("Access-Control-Allow-Origin", "http://localhost:9000");
+            headers.add("Access-Control-Allow-Origin", "*");
             headers.add("Access-Control-Expose-Headers", "X-Cache-Date");
             headers.add("Access-Control-Expose-Headers", "X-Atmosphere-tracking-id");
             headers.add("Access-Control-Allow-Credentials", Boolean.TRUE.toString());

@@ -23,13 +23,16 @@
     <script type="text/javascript">
         $(function() {
             $.ajaxSetup({
+                /*xhrFields: {
+                    withCredentials: true
+                },*/
                 error: function(jqXHR, textStatus, error) {
-                    window.alert("Error: " + error);
+                    window.alert(textStatus);
                 }
             });
 
             window.dexodus = {
-                baseurl: "",
+                baseurl: "http://localhost:8086",
 
                 getUrl: function(ns, key) {
                     return this.baseurl + "/" + ns + "/" + key;
@@ -56,18 +59,29 @@
                 i: 1,
 
                 generateKey: function() {
-                    return i++;
-                }
-            }
+                    return this.i++;
+                },
 
-            $(document).keydown(function(e) {
-                if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
+                paste: function() {
                     var key = dexodus.generateKey();
-                    dexodus.put("paste", key, $("#paste"), function() {
+                    this.put("paste", key, $("#paste").val(), function() {
                         window.location += "#" + key;
                     });
                 }
+            }
+
+            $("#paste").keydown(function(e) {
+                if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
+                    dexodus.paste();
+                    return false;
+                }
             })
+
+            $("#submit").click(function(){
+                dexodus.paste();
+                return true;
+            });
+
         });
     </script>
 </head>
@@ -77,15 +91,13 @@
 <![endif]-->
 
 <div class="container">
-    <form>
-        <fieldset>
-            <legend>Paste your code</legend>
-            <textarea id="paste" rows="20" cols="80"></textarea>
-            <div>
-                <button type="submit" class="btn btn-primary">Paste</button>
-            </div>
-        </fieldset>
-    </form>
+    <fieldset>
+        <legend>Paste your code</legend>
+        <textarea id="paste" rows="20" cols="80" placeholder="Paste your code here"></textarea>
+        <div>
+            <button id="submit" type="submit" class="btn btn-primary">Paste</button>
+        </div>
+    </fieldset>
 </div>
 
 </body>

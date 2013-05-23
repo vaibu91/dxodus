@@ -44,6 +44,7 @@ public class Database {
 
     @POST
     @Path("/{ns}/{key}")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
