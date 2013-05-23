@@ -1,6 +1,7 @@
 package jetbrains.exodus.distrubuted.server;
 
 import com.sun.jersey.api.client.*;
+import com.sun.jersey.api.client.async.TypeListener;
 import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
@@ -19,9 +20,21 @@ import java.util.concurrent.TimeoutException;
 public class RemoteConnector {
 
     private static final RemoteConnector INSTANCE = new RemoteConnector();
-    private static final GenericType<String> STRING_TYPE = new GenericType<>(String.class);
-    private static final GenericType<String[]> STRING_ARR_TYPE = new GenericType<>(String[].class);
-    private static final GenericType<ClientResponse> RESP_TYPE = new GenericType<>(ClientResponse.class);
+    private static final TypeListener<String> STRING_L = new TypeListener<String>(new GenericType<String>(String.class)) {
+        @Override
+        public void onComplete(Future<String> f) throws InterruptedException {
+        }
+    };
+    private static final TypeListener<String[]> STRING_ARR_L = new TypeListener<String[]>(new GenericType<String[]>(String[].class)) {
+        @Override
+        public void onComplete(Future<String[]> f) throws InterruptedException {
+        }
+    };
+    private static final TypeListener<ClientResponse> RESP_L = new TypeListener<ClientResponse>(new GenericType<ClientResponse>(ClientResponse.class)) {
+        @Override
+        public void onComplete(Future<ClientResponse> f) throws InterruptedException {
+        }
+    };
 
     private final Client c;
 
@@ -38,20 +51,20 @@ public class RemoteConnector {
 
     public String get(@NotNull final String url, @NotNull final String ns,
                       @NotNull final String key, long timeout, @Nullable final Long timeStamp) throws TimeoutException {
-        return wrapFuture(timeout, getAsync(url, ns, key, timeStamp));
+        return wrapFuture(timeout, getAsync(url, ns, key, STRING_L, timeStamp));
     }
 
     public Future<String> getAsync(@NotNull final String url, @NotNull final String ns, @NotNull final String key) {
-        return getAsync(url, ns, key, null);
+        return getAsync(url, ns, key, STRING_L, null);
     }
 
     public Future<String> getAsync(@NotNull final String url, @NotNull final String ns,
-                                   @NotNull final String key, @Nullable final Long timeStamp) {
+                                   @NotNull final String key, @NotNull final TypeListener<String> l, @Nullable final Long timeStamp) {
         AsyncWebResource r = c.asyncResource(url + ns + '/' + key);
         if (timeStamp != null) {
             r = r.queryParam("timeStamp", timeStamp.toString());
         }
-        return r.get(STRING_TYPE);
+        return r.get(l);
     }
 
     public ClientResponse put(@NotNull final String url, @NotNull final String ns,
@@ -61,18 +74,18 @@ public class RemoteConnector {
 
     public ClientResponse put(@NotNull final String url, @NotNull final String ns, @NotNull final String key,
                               @NotNull String value, long timeout, @Nullable final Long timeStamp) throws TimeoutException {
-        return wrapFuture(timeout, putAsync(url, ns, key, value, timeStamp));
+        return wrapFuture(timeout, putAsync(url, ns, key, value, RESP_L, timeStamp));
     }
 
     @NotNull
     public Future<ClientResponse> putAsync(@NotNull final String url, @NotNull final String ns, @NotNull final String key,
                                            @NotNull String value) {
-        return putAsync(url, ns, key, value, null);
+        return putAsync(url, ns, key, value, RESP_L, null);
     }
 
     @NotNull
     public Future<ClientResponse> putAsync(@NotNull final String url, @NotNull final String ns, @NotNull final String key,
-                                           @NotNull String value, @Nullable final Long timeStamp) {
+                                           @NotNull String value, @NotNull final TypeListener<ClientResponse> l, @Nullable final Long timeStamp) {
         AsyncWebResource r = c.asyncResource(url + ns + '/' + key);
         if (timeStamp != null) {
             r = r.queryParam("timeStamp", timeStamp.toString());
@@ -80,16 +93,15 @@ public class RemoteConnector {
         r.type(MediaType.APPLICATION_FORM_URLENCODED_TYPE);
         final MultivaluedMap<String, String> formData = new MultivaluedMapImpl();
         formData.add("value", value);
-        return r.post(RESP_TYPE, formData);
+        return r.post(l, formData);
     }
 
     public String[] friends(@NotNull final String url, long timeout) throws TimeoutException {
-        return wrapFuture(timeout, friendsAsync(url));
+        return wrapFuture(timeout, friendsAsync(url, STRING_ARR_L));
     }
 
-    private Future<String[]> friendsAsync(String url) {
-        AsyncWebResource r = c.asyncResource(url + "friends");
-        return r.get(STRING_ARR_TYPE);
+    private Future<String[]> friendsAsync(@NotNull final String url, @NotNull final TypeListener<String[]> l) {
+        return c.asyncResource(url + "friends").get(l);
     }
 
     public static RemoteConnector getInstance() {
