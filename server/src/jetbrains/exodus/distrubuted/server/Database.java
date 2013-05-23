@@ -86,7 +86,9 @@ public class Database {
     public String[] doGetFriends(@QueryParam("friendUri") final String friendUri) {
         final App app = App.getInstance();
         final String[] result = app.getFriends();
-        app.addFriends(friendUri);
+        if (friendUri != null) {
+            app.addFriends(friendUri);
+        }
         return result;
     }
 }
