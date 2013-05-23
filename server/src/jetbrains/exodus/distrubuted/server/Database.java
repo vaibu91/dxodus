@@ -91,12 +91,6 @@ public class Database {
     }
 
     @GET
-    @Path("/namespaces")
-    public String[] doGetNamespaces() {
-        return App.getInstance().getNamespaces();
-    }
-
-    @GET
     @Path("/friends")
     public String[] doGetFriends(@QueryParam("friendUri") final String friendUri) {
         final App app = App.getInstance();
