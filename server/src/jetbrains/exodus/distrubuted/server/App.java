@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class App {
@@ -25,7 +27,7 @@ public class App {
     private final URI baseURI;
     private final HttpServer server;
     private final Environment environment;
-    private final Map<String, Store> namespaces = new HashMap<>();
+    private final Map<String, Store> namespaces = new TreeMap<>();
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
 
     public App(URI baseURI, HttpServer server, Environment environment) {
@@ -78,13 +80,18 @@ public class App {
         }
     }
 
-    public void close() {
-        server.stop(0);
-        for (Store store : namespaces.values()) {
-            store.close();
-        }
-        environment.close();
-        System.out.println("Server stopped");
+    @NotNull
+    public String[] getNamespaces() {
+        final String[][] result = new String[1][];
+        result[0] = EMPTY_FRIENDS;
+        environment.beginTransaction(new Runnable() {
+            @Override
+            public void run() {
+                final Set<String> keys = namespaces.keySet();
+                result[0] = keys.toArray(new String[keys.size()]);
+            }
+        });
+        return result[0];
     }
 
     public void addFriends(@NotNull final String... friends) {
@@ -102,6 +109,7 @@ public class App {
         }
     }
 
+    @NotNull
     public String[] getFriends() {
         final PersistentHashSet<String> friends = this.friends.get();
         if (friends == null) {
@@ -114,6 +122,15 @@ public class App {
             result[i++] = friend;
         }
         return result;
+    }
+
+    public void close() {
+        server.stop(0);
+        for (Store store : namespaces.values()) {
+            store.close();
+        }
+        environment.close();
+        System.out.println("Server stopped");
     }
 
     public static App getInstance() {
