@@ -75,6 +75,7 @@ public class Database {
     }
 
     @GET
+    @Path("/friends")
     public String[] doGetFriends() {
         return App.getInstance().getFriends();
     }
