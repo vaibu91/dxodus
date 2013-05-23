@@ -8,6 +8,7 @@ import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
 import org.jetbrains.annotations.NotNull;
 
+import javax.servlet.Filter;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -103,7 +104,10 @@ public class App {
 
     }
 
+    @SuppressWarnings("unchecked")
     public static ResourceConfig getResourceConfig() {
-        return new ClassNamesResourceConfig(Database.class);
+        final ClassNamesResourceConfig cfg = new ClassNamesResourceConfig(Database.class);
+        cfg.getContainerResponseFilters().add(0, new CorsFilter());
+        return cfg;
     }
 }
