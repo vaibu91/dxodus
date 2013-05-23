@@ -112,7 +112,7 @@ public class Database {
 //                e.printStackTrace();
                 System.out.println("Timeout for [" + friends[f] + "]");
                 // remove bad friend
-                //App.getInstance().addFriends();
+                App.getInstance().removeFriends(friends[f]);
             }
         }
     }
