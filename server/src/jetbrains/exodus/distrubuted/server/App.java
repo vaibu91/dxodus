@@ -90,7 +90,7 @@ public class App {
                 final Set<String> keys = namespaces.keySet();
                 result[0] = keys.toArray(new String[keys.size()]);
             }
-        });
+        }).abort();
         return result[0];
     }
 
