@@ -17,10 +17,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.security.SecureRandom;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class App {
@@ -32,6 +30,7 @@ public class App {
     private final URI baseURI;
     private final HttpServer server;
     private final Environment environment;
+    private final Random random = new SecureRandom();
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
@@ -59,6 +58,10 @@ public class App {
 
     public Environment getEnvironment() {
         return environment;
+    }
+
+    public Random getRandom() {
+        return random;
     }
 
     public Store getNamespacesIdx() {

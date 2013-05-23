@@ -1,5 +1,6 @@
 package jetbrains.exodus.distrubuted.server;
 
+import jetbrains.exodus.core.dataStructures.hash.IntHashSet;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.ByteIterator;
 import jetbrains.exodus.database.impl.bindings.LongBinding;
@@ -17,7 +18,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-import java.security.SecureRandom;
+import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
 @Path("")
@@ -111,22 +112,25 @@ public class Database {
     }
 
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
-        int replicated = 0;
-        String[] friends = App.getInstance().getFriends();
-        SecureRandom r = new SecureRandom();
-        while (replicated < App.getInstance().friendsToReplicatePut && replicated < friends.length) {
-            int f = r.nextInt(friends.length);
+        final App app = App.getInstance();
+        final String[] friends = app.getFriends();
+        final Random random = app.getRandom();
+        final IntHashSet replicated = new IntHashSet();
 
+        while (replicated.size() < app.friendsToReplicatePut && replicated.size() < friends.length) {
+            int f;
+            for (f = random.nextInt(friends.length); replicated.contains(f); ) {
+                f = random.nextInt(friends.length);
+            }
             System.out.println("Replicate put to [" + friends[f] + "]");
-
             try {
                 RemoteConnector.getInstance().put(friends[f], ns, key, value, 100, timeStamp);
-                replicated++;
+                replicated.add(f);
             } catch (TimeoutException e) {
 //                e.printStackTrace();
                 System.out.println("Timeout for [" + friends[f] + "]");
                 // remove bad friend
-                App.getInstance().removeFriends(friends[f]);
+                app.removeFriends(friends[f]);
             }
         }
     }
