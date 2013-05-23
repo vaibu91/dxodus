@@ -13,11 +13,13 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
+import java.util.Arrays;
 
 public class RemoteConnector {
 
     private static final RemoteConnector INSTANCE = new RemoteConnector();
     private static final GenericType<String> STRING_TYPE = new GenericType<>(String.class);
+    private static final GenericType<String[]> STRING_ARR_TYPE = new GenericType<>(String[].class);
     private static final GenericType<ClientResponse> RESP_TYPE = new GenericType<>(ClientResponse.class);
 
     public String get(@NotNull final String url, @NotNull final String ns, @NotNull final String key) {
@@ -52,6 +54,12 @@ public class RemoteConnector {
         return r.post(RESP_TYPE, formData);
     }
 
+    public String[] friends(@NotNull final String url) {
+        Client c = createClient();
+        WebResource r = c.resource(url + "friends");
+        return r.get(STRING_ARR_TYPE);
+    }
+
     private Client createClient() {
         ClientConfig clientConfig = new DefaultClientConfig();
         clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
@@ -66,7 +74,10 @@ public class RemoteConnector {
     public static void main(String[] args) {
         // simple connector test
         final String val = Long.toBinaryString(System.currentTimeMillis());
-        System.out.println(RemoteConnector.getInstance().put("http://localhost:8086/", "ns1", "key2", val).getStatus());
-        System.out.println(RemoteConnector.getInstance().get("http://localhost:8086/", "ns1", "key2"));
+        final String url = "http://localhost:8086/";
+        final RemoteConnector conn = RemoteConnector.getInstance();
+        System.out.println(conn.put(url, "ns1", "key2", val).getStatus());
+        System.out.println(conn.get(url, "ns1", "key2"));
+        System.out.println(Arrays.toString(conn.friends(url)));
     }
 }
