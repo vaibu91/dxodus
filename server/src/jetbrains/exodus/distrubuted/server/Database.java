@@ -1,5 +1,6 @@
 package jetbrains.exodus.distrubuted.server;
 
+import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.hash.IntHashSet;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.ByteIterator;
@@ -11,6 +12,7 @@ import jetbrains.exodus.database.impl.iterate.LightOutputStream;
 import jetbrains.exodus.database.persistence.Cursor;
 import jetbrains.exodus.database.persistence.Store;
 import jetbrains.exodus.database.persistence.Transaction;
+import jetbrains.exodus.database.persistence.TransactionalComputable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.ws.rs.*;
@@ -18,6 +20,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
@@ -111,6 +115,53 @@ public class Database {
         return Response.ok().build();
     }
 
+    @GET
+    @Path("/friends")
+    public String[] doGetFriends(@QueryParam("friendUri") final String friendUri) {
+        final App app = App.getInstance();
+        final String[] result = app.getFriends();
+        if (friendUri != null) {
+            app.addFriends(friendUri);
+        }
+        return result;
+    }
+
+    @GET
+    @Path("/data")
+    public List<Pair<String, List<KeyValueTuple>>> doGetData(@NotNull @QueryParam("timeStamp") final Long timeStamp) {
+        final App app = App.getInstance();
+        return app.getEnvironment().computeInTransaction(new TransactionalComputable<List<Pair<String, List<KeyValueTuple>>>>() {
+            @Override
+            public List<Pair<String, List<KeyValueTuple>>> compute(@NotNull final Transaction txn) {
+                final List<Pair<String, List<KeyValueTuple>>> result = new ArrayList<>();
+                for (final String ns : app.getNamespaces(timeStamp, txn)) {
+                    final Pair<Store, Store> stores = app.getNsStores(ns);
+                    final Store namespace = stores.getFirst();
+                    final Store idx = stores.getSecond();
+                    final List<KeyValueTuple> nsList = new ArrayList<>();
+                    final Cursor cursor = idx.openCursor(txn);
+                    try {
+                        ByteIterable valueEntry = cursor.getSearchKeyRange(LongBinding.longToCompressedEntry(timeStamp));
+                        while (valueEntry != null) {
+                            final String key = StringBinding.entryToString(valueEntry);
+                            final long keyTimeStamp = LongBinding.compressedEntryToLong(cursor.getKey());
+                            final ByteIterator itr = namespace.get(txn, valueEntry).iterator();
+                            itr.skip(8); // ignore timestamp
+                            final String value = IterableUtils.readString(itr);
+                            valueEntry = cursor.getNext() ? cursor.getValue() : null;
+                            nsList.add(new KeyValueTuple(key, value, keyTimeStamp));
+                        }
+                    } finally {
+                        cursor.close();
+                    }
+                    result.add(new Pair<>(ns, nsList));
+                }
+                return result;
+            }
+        });
+    }
+
+
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
         final App app = App.getInstance();
         final String[] friends = app.getFriends();
@@ -133,16 +184,5 @@ public class Database {
                 app.removeFriends(friends[f]);
             }
         }
-    }
-
-    @GET
-    @Path("/friends")
-    public String[] doGetFriends(@QueryParam("friendUri") final String friendUri) {
-        final App app = App.getInstance();
-        final String[] result = app.getFriends();
-        if (friendUri != null) {
-            app.addFriends(friendUri);
-        }
-        return result;
     }
 }

@@ -110,6 +110,15 @@ public class App {
         }
     }
 
+    public Pair<Store, Store> getNsStores(@NotNull final String ns) {
+        return computeInTransaction(ns, new NamespaceTransactionalComputable<Pair<Store, Store>>() {
+            @Override
+            public Pair<Store, Store> compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
+                return new Pair<>(namespace, idx);
+            }
+        });
+    }
+
     @NotNull
     public String[] getNamespaces() {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
@@ -127,21 +136,26 @@ public class App {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
             public String[] compute(@NotNull final Transaction txn) {
-                final List<String> result = new ArrayList<>();
-                final List<String> nsList = environment.getAllStoreNames(txn);
-                for (final String ns : nsList) {
-                    final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
-                    if (timeStampEntry == null) {
-                        throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
-                    }
-                    if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
-                        result.add(ns);
-                    }
-                }
-                final int size = result.size();
-                return size > 0 ? result.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+                return getNamespaces(timestamp, txn);
             }
         });
+    }
+
+    @NotNull
+    public String[] getNamespaces(final long timestamp, @NotNull final Transaction txn) {
+        final List<String> result = new ArrayList<>();
+        final List<String> nsList = environment.getAllStoreNames(txn);
+        for (final String ns : nsList) {
+            final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
+            if (timeStampEntry == null) {
+                throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
+            }
+            if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
+                result.add(ns);
+            }
+        }
+        final int size = result.size();
+        return size > 0 ? result.toArray(new String[size]) : EMPTY_STRING_ARRAY;
     }
 
     public void addFriends(@NotNull final String... friends) {
