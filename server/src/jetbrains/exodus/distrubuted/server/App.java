@@ -130,6 +130,21 @@ public class App {
         }
     }
 
+    public void removeFriends(@NotNull final String... friends) {
+        for (; ; ) {
+            final PersistentHashSet<String> oldSet = this.friends.get();
+            final PersistentHashSet<String> newSet = oldSet == null ? new PersistentHashSet<String>() : oldSet.getClone();
+            final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
+            for (final String friend : friends) {
+                mutableSet.remove(friend);
+            }
+            mutableSet.endWrite();
+            if (this.friends.compareAndSet(oldSet, newSet)) {
+                break;
+            }
+        }
+    }
+
     @NotNull
     public String[] getFriends() {
         final PersistentHashSet<String> friends = this.friends.get();
