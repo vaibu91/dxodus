@@ -5,6 +5,7 @@ import com.sun.jersey.api.core.ClassNamesResourceConfig;
 import com.sun.jersey.api.core.ResourceConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
 import com.sun.net.httpserver.HttpServer;
+import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.persistent.PersistentHashSet;
 import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
@@ -22,11 +23,12 @@ public class App {
 
     private static App INSTANCE;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final String NS_IDX_SUFFIX = "#idx";
 
     private final URI baseURI;
     private final HttpServer server;
     private final Environment environment;
-    private final Map<String, Store> namespaces = new TreeMap<>();
+    private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
 
     public App(URI baseURI, HttpServer server, Environment environment) {
@@ -47,28 +49,32 @@ public class App {
         return environment;
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T computeInTransaction(@NotNull final String ns, @NotNull NamespaceTransactionalComputable<T> computable) {
-        final Store[] store = new Store[1];
+        final Pair<Store, Store>[] storePair = new Pair[1];
         final Transaction txn = environment.beginTransaction(new Runnable() {
             @Override
             public void run() {
-                store[0] = namespaces.get(ns);
+                storePair[0] = namespaces.get(ns);
             }
         });
         txn.setCommitHook(new Runnable() {
             @Override
             public void run() {
                 if (!namespaces.containsKey(ns)) { // don't remember if conflict occurred
-                    namespaces.put(ns, store[0]);
+                    namespaces.put(ns, storePair[0]);
+                    storePair[0] = null;
                 }
             }
         });
         try {
             while (true) {
-                if (store[0] == null) {
-                    store[0] = environment.openStore(ns, StoreConfiguration.WITHOUT_DUPLICATES, txn);
+                if (storePair[0] == null) {
+                    final Store store = environment.openStore(ns, StoreConfiguration.WITHOUT_DUPLICATES, txn);
+                    final Store idx = environment.openStore(ns + NS_IDX_SUFFIX, StoreConfiguration.WITH_DUPLICATES, txn);
+                    storePair[0] = new Pair<>(store, idx);
                 }
-                final T result = computable.compute(txn, store[0], this);
+                final T result = computable.compute(txn, storePair[0].getFirst(), storePair[0].getSecond(), this);
                 if (txn.flush()) {
                     return result;
                 }
@@ -76,6 +82,10 @@ public class App {
             }
         } finally {
             txn.abort();
+            if (storePair[0] != null) {
+                storePair[0].getFirst().close();
+                storePair[0].getSecond().close();
+            }
         }
     }
 
@@ -123,8 +133,9 @@ public class App {
 
     public void close() {
         server.stop(0);
-        for (Store store : namespaces.values()) {
-            store.close();
+        for (final Pair<Store, Store> storePair : namespaces.values()) {
+            storePair.getFirst().close();
+            storePair.getSecond().close();
         }
         environment.close();
         System.out.println("Server stopped");

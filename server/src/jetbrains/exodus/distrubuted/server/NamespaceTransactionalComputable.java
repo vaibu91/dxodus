@@ -6,6 +6,6 @@ import org.jetbrains.annotations.NotNull;
 
 public interface NamespaceTransactionalComputable<T> {
 
-    T compute(@NotNull final Transaction txn, @NotNull Store namespace, @NotNull App app);
+    T compute(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx, @NotNull final App app);
 
 }

@@ -2,10 +2,12 @@ package jetbrains.exodus.distrubuted.server;
 
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.ByteIterator;
+import jetbrains.exodus.database.impl.bindings.LongBinding;
 import jetbrains.exodus.database.impl.bindings.StringBinding;
 import jetbrains.exodus.database.impl.iterate.ArrayByteIterable;
 import jetbrains.exodus.database.impl.iterate.IterableUtils;
 import jetbrains.exodus.database.impl.iterate.LightOutputStream;
+import jetbrains.exodus.database.persistence.Cursor;
 import jetbrains.exodus.database.persistence.Store;
 import jetbrains.exodus.database.persistence.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -15,7 +17,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-import java.util.Collection;
 
 @Path("")
 @Produces(MediaType.APPLICATION_JSON)
@@ -29,7 +30,7 @@ public class Database {
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final ByteIterable valueBytes = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ByteIterable>() {
             @Override
-            public ByteIterable compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull App app) {
+            public ByteIterable compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
                 return namespace.get(txn, keyBytes);
             }
         });
@@ -51,19 +52,33 @@ public class Database {
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
-            public Long compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull App app) {
+            public Long compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
                 final long nextTimeStamp = timeStamp == null ? System.currentTimeMillis() : timeStamp;
+                final long oldTimeStamp;
                 final ByteIterable oldValueBytes = namespace.get(txn, keyBytes);
-                if (oldValueBytes != null) {
-                    final long oldTimeStamp = IterableUtils.readLong(oldValueBytes.iterator());
+                if (oldValueBytes == null) {
+                    oldTimeStamp = 0;
+                } else {
+                    oldTimeStamp = IterableUtils.readLong(oldValueBytes.iterator());
                     if (oldTimeStamp > nextTimeStamp) {
                         return null;
                     }
                 }
-                LightOutputStream out = new LightOutputStream(10 + value.length()); // 8 per long and 2 additional for str
+                final LightOutputStream out = new LightOutputStream(10 + value.length()); // 8 per long and 2 additional for str
                 out.writeLong(nextTimeStamp);
                 out.writeString(value);
                 namespace.put(txn, keyBytes, out.asArrayByteIterable());
+                if (oldTimeStamp != 0) {
+                    final Cursor cursor = idx.openCursor(txn);
+                    try {
+                        if (cursor.getSearchBoth(LongBinding.longToCompressedEntry(oldTimeStamp), keyBytes)) {
+                            cursor.deleteCurrent();
+                        }
+                    } finally {
+                        cursor.close();
+                    }
+                }
+                idx.put(txn, LongBinding.longToCompressedEntry(nextTimeStamp), keyBytes);
                 return nextTimeStamp;
             }
         });
