@@ -10,7 +10,6 @@ import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
 import org.jetbrains.annotations.NotNull;
 
-import javax.servlet.Filter;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -131,6 +130,7 @@ public class App {
             final URI baseURI = URI.create(System.getProperty("dexodus.base.url", "http://localhost:8086/"));
             final HttpServer server = HttpServerFactory.create(baseURI, getResourceConfig());
             App.INSTANCE = new App(baseURI, server, environment);
+            App.getInstance().addFriends(parseFriends());
             server.start();
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 @Override
@@ -151,5 +151,13 @@ public class App {
         cfg.getContainerResponseFilters().add(0, new CorsFilter());
         cfg.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
         return cfg;
+    }
+
+    private static String[] parseFriends() {
+        final String friends = System.getProperty("dexodus.friends");
+        if (friends == null) {
+            return EMPTY_FRIENDS;
+        }
+        return friends.split(File.pathSeparator);
     }
 }
