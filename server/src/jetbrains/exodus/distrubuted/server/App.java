@@ -79,8 +79,11 @@ public class App {
     }
 
     public static void main(String[] args) {
+        final EnvironmentConfig ec = new EnvironmentConfig();
+        ec.setLogCacheShared(false);
+        ec.setMemoryUsagePercentage(80);
         try {
-            final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), new EnvironmentConfig());
+            final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), ec);
             final HttpServer server = HttpServerFactory.create(BASE_URI, getResourceConfig());
             App.INSTANCE = new App(server, environment);
             server.start();
