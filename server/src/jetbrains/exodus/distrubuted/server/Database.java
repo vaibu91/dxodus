@@ -165,9 +165,9 @@ public class Database {
 
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
         final App app = App.getInstance();
-        final String[] friends = app.getFriends();
         final Random random = app.getRandom();
         final IntHashSet replicated = new IntHashSet();
+        String[] friends = app.getFriends();
 
         while (replicated.size() < app.friendsToReplicatePut && replicated.size() < friends.length && friends.length > 0) {
             int f;
@@ -176,7 +176,7 @@ public class Database {
             }
             System.out.println("Replicate put to [" + friends[f] + "]");
             try {
-                RemoteConnector.getInstance().put(friends[f], ns, key, value, 100, timeStamp);
+                RemoteConnector.getInstance().put(friends[f], ns, key, value, 1000, timeStamp);
                 replicated.add(f);
                 System.out.println("Replicated: " + replicated.size() + ". Friends: " + friends.length);
             } catch (Exception e) {
@@ -184,6 +184,7 @@ public class Database {
                 System.out.println("Exception for [" + friends[f] + "] " + e.getMessage());
                 // remove bad friend
                 app.removeFriends(friends[f]);
+                friends = app.getFriends();
             }
         }
     }
