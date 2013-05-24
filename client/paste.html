@@ -34,7 +34,7 @@
             });
 
             window.dexodus = {
-                baseurl : null,
+                baseurl: null,
 
                 urls: ["http://172.20.208.215:8080/", "http://172.20.208.216:8080/"],
 
@@ -56,7 +56,8 @@
                 selectHost: function(call) {
                     var it = this;
                     var f = function() {
-                        it.baseurl = it.getRandomUrl();
+                        if (it.baseurl == null) it.baseurl = it.getRandomUrl();
+
                         it.ping(it.baseurl, function() {
                             console.info("Select host " + it.baseurl);
                             call();
@@ -64,6 +65,7 @@
                             console.info("Remove host " + it.baseurl);
                             // remove friend and try again
                             it.urls.splice(it.urls.indexOf(it.baseurl), 1);
+                            it.baseurl = null;
                             f();
                         });
                     }
@@ -115,6 +117,7 @@
                     if (this.urls.indexOf(url) >= 0) {
                         console.info("Remove host " + url);
                         this.urls.splice(this.urls.indexOf(url), 1);
+                        dexodus.baseurl = dexodus.getRandomUrl();
                         this.printFriends();
                     }
                 },
@@ -128,6 +131,8 @@
                                         if (dexodus.urls.indexOf(value) == -1) {
                                             console.info("Add host " + value);
                                             dexodus.urls.push(value);
+                                            // change base  url on new friend add
+                                            dexodus.baseurl = dexodus.getRandomUrl();
                                             dexodus.printFriends();
                                         }
                                     });
@@ -173,7 +178,7 @@
                     console.info("========");
                     $.each(dexodus.urls, function(index, value) {
                         console.info(value);
-                        html += "<li>" + value + "</li>";
+                        html += "<li>" + (value == dexodus.baseurl ?  "<b>" + value + "</b>" : value) + "</li>";
                     });
                     console.info("========");
 
@@ -182,6 +187,7 @@
                 }
             }
 
+            dexodus.baseurl = dexodus.getRandomUrl();
             dexodus.updateFriends();
             window.setInterval(function() {
                 dexodus.updateFriends();
@@ -204,8 +210,8 @@
             });
 
             $("#newPaste").click(function() {
-                window.location.hash = "";
-                window.location.reload();
+                $("#viewScreen").hide();
+                $("#pasteScreen").show();
             });
 
             // initial state
@@ -233,7 +239,7 @@
 <div class="container-fluid">
     <div class="row-fluid">
         <div class="span2">
-            <h3>Live server</h3>
+            <h3>Live servers</h3>
             <div id="servers">
             </div>
         </div>
