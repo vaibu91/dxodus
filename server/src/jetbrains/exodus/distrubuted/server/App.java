@@ -41,7 +41,10 @@ public class App {
     private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
     private final AtomicReference<PersistentHashSet<FriendsListener>> friendListeners = new AtomicReference<>();
+
     final int friendDegree = Integer.getInteger("dexodus.friendDegree", 2);
+    final int replicationReadDegree = Integer.getInteger("dexodus.replicationReadDegree", 4);
+    final int replicationWriteDegree = Integer.getInteger("dexodus.replicationWriteDegree", 4);
 
     public App(URI baseURI, HttpServer server, final Environment environment) {
         this.baseURI = baseURI;

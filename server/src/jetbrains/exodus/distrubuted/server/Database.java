@@ -80,8 +80,9 @@ public class Database {
             }
         });
         final long localTimeStamp = seed == null ? 0 : seed.getTimeStamp();
+        final int maxFriends = Math.min(app.replicationReadDegree, friends.length);
         AsyncQuorum.Context<ValueTimeStampTuple, ValueTimeStampTuple> ctx =
-                AsyncQuorum.createContext(Math.min(app.friendDegree, friends.length),
+                AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
                         new AsyncQuorum.ResultFilter<ValueTimeStampTuple, ValueTimeStampTuple>() {
                             @Nullable
                             @Override
@@ -114,13 +115,16 @@ public class Database {
                         },
                         RemoteConnector.REPL_TYPE
                 );
-        final Future[] futures = new Future[friends.length];
+        final Future[] futures = new Future[maxFriends];
         int i = 0;
         for (final String friend : friends) {
             log.info("Replicate get to: " + friend);
             final Future<ValueTimeStampTuple> future = RemoteConnector.getInstance().getAsyncRepl(friend, ns, key, localTimeStamp, ctx.getListener());
             futures[i++] = future;
             futureToFriends.put(future, friend);
+            if (i >= maxFriends) {
+                break;
+            }
         }
         ctx.setFutures(futures);
         try {
@@ -246,9 +250,10 @@ public class Database {
         if (friends.length == 0) {
             return;
         }
+        final int maxFriends = Math.min(app.replicationWriteDegree, friends.length);
         final Map<Future, String> futureToFriends = new HashMap<>();
         AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
-                AsyncQuorum.createContext(Math.min(app.friendDegree, friends.length),
+                AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
                         new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
                             @Nullable
                             @Override
@@ -271,13 +276,16 @@ public class Database {
                         },
                         RemoteConnector.RESP_TYPE
                 );
-        final Future[] futures = new Future[friends.length];
+        final Future[] futures = new Future[maxFriends];
         int i = 0;
-        for (final String friend : app.getFriends()) {
+        for (final String friend : friends) {
             log.info("Schedule replication to: " + friend);
             final Future<ClientResponse> future = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp);
             futures[i++] = future;
             futureToFriends.put(future, friend);
+            if (i >= maxFriends) {
+                break;
+            }
         }
         ctx.setFutures(futures);
         try {
