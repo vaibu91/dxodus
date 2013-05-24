@@ -25,7 +25,6 @@ import javax.ws.rs.core.UriInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeoutException;
 
 @Path("")
 @Produces(MediaType.APPLICATION_JSON)
@@ -173,7 +172,7 @@ public class Database {
         final IntHashSet replicated = new IntHashSet();
         String[] friends = app.getFriends();
 
-        while (replicated.size() < app.friendsToReplicatePut && replicated.size() < friends.length && friends.length > 0) {
+        while (replicated.size() < app.friendDegree && replicated.size() < friends.length && friends.length > 0) {
             int f;
             for (f = random.nextInt(friends.length); replicated.contains(f); ) {
                 f = random.nextInt(friends.length);

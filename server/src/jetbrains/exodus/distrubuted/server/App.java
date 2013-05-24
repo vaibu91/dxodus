@@ -38,7 +38,7 @@ public class App {
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
-    final int friendsToReplicatePut = Integer.getInteger("dexodus.friendsToReplicatePut", 2);
+    final int friendDegree = Integer.getInteger("dexodus.friendDegree", 2);
 
     public App(URI baseURI, HttpServer server, final Environment environment) {
         this.baseURI = baseURI;
