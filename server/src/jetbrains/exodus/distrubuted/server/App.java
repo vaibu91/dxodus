@@ -420,7 +420,7 @@ public class App {
                         contentBuilder.append(buf, 0, read);
                     }
                 }
-                Database.putLocally("java", javaFile.getName(), contentBuilder.toString(), javaFile.lastModified());
+                Database.putLocally("java", javaFile.getName(), contentBuilder.toString(), System.currentTimeMillis());
             } catch (IOException ioe) {
                 log.warn("Failed to load " + javaFile);
             }
