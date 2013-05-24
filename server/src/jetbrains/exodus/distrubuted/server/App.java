@@ -45,6 +45,7 @@ public class App {
     final int friendDegree = Integer.getInteger("dexodus.friendDegree", 2);
     final int replicationReadDegree = Integer.getInteger("dexodus.replicationReadDegree", 4);
     final int replicationWriteDegree = Integer.getInteger("dexodus.replicationWriteDegree", 4);
+    final int replicationWriteRetryDegree = Integer.getInteger("dexodus.replicationWriteRetryDegree", 3);
 
     public App(URI baseURI, HttpServer server, final Environment environment) {
         this.baseURI = baseURI;

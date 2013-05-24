@@ -245,57 +245,61 @@ public class Database {
 
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
         final App app = App.getInstance();
-        final String[] friends = app.getFriends();
-        app.shuffle(friends);
-        if (friends.length == 0) {
-            return;
-        }
-        final int maxFriends = Math.min(app.replicationWriteDegree, friends.length);
-        final Map<Future, String> futureToFriends = new HashMap<>();
-        AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
-                AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
-                        new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
-                            @Nullable
-                            @Override
-                            public ClientResponse fold(@Nullable ClientResponse prev, @Nullable ClientResponse current) {
-                                return current;
-                            }
-                        }, new AsyncQuorum.ErrorHandler<ClientResponse>() {
-                            @Override
-                            public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
-                                final String friend = futureToFriends.get(failed);
-                                if (t == null) { // null means "cancelled"
-                                    log.info("Replication cancelled for [" + friend + "]");
-                                } else {
-                                    log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
-                                    if (friend != null) {
-                                        app.removeFriends(friend);
+        for (int retry = 0; retry < app.replicationWriteRetryDegree; retry++) {
+            final String[] friends = app.getFriends();
+            app.shuffle(friends);
+            if (friends.length == 0) {
+                return;
+            }
+            final int maxFriends = Math.min(app.replicationWriteDegree, friends.length);
+            final Map<Future, String> futureToFriends = new HashMap<>();
+            AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
+                    AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
+                            new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
+                                @Nullable
+                                @Override
+                                public ClientResponse fold(@Nullable ClientResponse prev, @Nullable ClientResponse current) {
+                                    return current;
+                                }
+                            }, new AsyncQuorum.ErrorHandler<ClientResponse>() {
+                                @Override
+                                public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
+                                    final String friend = futureToFriends.get(failed);
+                                    if (t == null) { // null means "cancelled"
+                                        log.info("Replication cancelled for [" + friend + "]");
+                                    } else {
+                                        log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                                        if (friend != null) {
+                                            app.removeFriends(friend);
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        RemoteConnector.RESP_TYPE
-                );
-        final Future[] futures = new Future[maxFriends];
-        int i = 0;
-        for (final String friend : friends) {
-            log.info("Schedule replication to: " + friend);
-            final Future<ClientResponse> future = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp);
-            futures[i++] = future;
-            futureToFriends.put(future, friend);
-            if (i >= maxFriends) {
-                break;
+                            },
+                            RemoteConnector.RESP_TYPE
+                    );
+            final Future[] futures = new Future[maxFriends];
+            int i = 0;
+            for (final String friend : friends) {
+                log.info("Schedule replication to: " + friend);
+                final Future<ClientResponse> future = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp);
+                futures[i++] = future;
+                futureToFriends.put(future, friend);
+                if (i >= maxFriends) {
+                    break;
+                }
             }
-        }
-        ctx.setFutures(futures);
-        try {
-            ctx.get(1000, TimeUnit.MILLISECONDS);
-            ctx.cancel(true); // cancel other jobs
-            log.warn("Replicated successfuly");
-        } catch (TimeoutException t) {
-            log.warn("Replication quorum timeout: " + t.getMessage());
-        } catch (Throwable t) {
-            log.error("Replication error", t);
+            ctx.setFutures(futures);
+            try {
+                ctx.get(1000, TimeUnit.MILLISECONDS);
+                ctx.cancel(true); // cancel other jobs
+                log.warn("Replicated successfuly");
+            } catch (QuorumException q) {
+                log.warn("Replication quorum error, looks like a lot of friends went down: " + q.getMessage());
+            } catch (TimeoutException t) {
+                log.warn("Replication quorum timeout: " + t.getMessage());
+            } catch (Throwable t) {
+                log.error("Replication error", t);
+            }
         }
     }
 
