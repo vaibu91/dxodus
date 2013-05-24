@@ -13,53 +13,19 @@ public class AsyncQuorum {
 
     private static final Future[] NO_FUTURES = new Future[0];
 
-    public static <R, T> Context<R, T> createContext(final int quorum, final ResultFilter<R, T> filter, final GenericType<T> type) {
-        return createContext(quorum, filter, null, type);
-    }
-
-    public static <R, T> Context<R, T> createContext(final int quorum, final ResultFilter<R, T> filter,
-                                                     final ErrorHandler<T> handler, final GenericType<T> type) {
+    public static <R, T> Context<R, T> createContext(final int quorum, final int total, final ResultFilter<R, T> filter, final GenericType<T> type) {
         return new Context<R, T>() {
+            private final Semaphore sema = new Semaphore(0);
             private final AtomicReference<Future[]> futures = new AtomicReference<>();
             private final AtomicReference<Status<R>> result = new AtomicReference<>(new Status<R>(null, 0, 0));
 
-            private final TypeListener<T> listener = new TypeListener<T>(type) {
-                @Override
-                public void onComplete(final Future<T> f) throws InterruptedException {
-                    try {
-                        final T r = f.get();
-                        while (true) {
-                            final Status<R> current = result.get();
-                            final R folded = filter.fold(current.result, r);
-                            final Status<R> updated = new Status<>(folded, current.success + 1, current.fail);
-                            if (result.compareAndSet(current, updated)) {
-                                sema.release();
-                                return;
-                            }
-                        }
-                    } catch (ExecutionException e) {
-                        if (handler != null) {
-                            handler.handleFailed(f, e);
-                        }
-                        while (true) {
-                            final Status<R> current = result.get();
-                            final Status<R> updated = new Status<>(current.result, current.success, current.fail + 1);
-                            if (result.compareAndSet(current, updated)) {
-                                if (updated.fail > futures.get().length - quorum) {
-                                    sema.release(quorum); // release all
-                                }
-                                return;
-                            }
-                        }
-                    } catch (CancellationException c) {
-                        if (handler != null) {
-                            handler.handleFailed(f, null);
-                        }
-                    }
+            @Override
+            public Context<R, T> setFutures(@NotNull final Future... f) {
+                if (!futures.compareAndSet(null, f)) {
+                    throw new IllegalStateException("Futures already set");
                 }
-            };
-
-            private final Semaphore sema = new Semaphore(0);
+                return this;
+            }
 
             @Override
             public boolean cancel(boolean mayInterruptIfRunning) {
@@ -75,14 +41,6 @@ public class AsyncQuorum {
                 }
                 futures.set(NO_FUTURES);
                 return true;
-            }
-
-            @Override
-            public Context<R, T> setFutures(@NotNull final Future... f) {
-                if (!futures.compareAndSet(null, f)) {
-                    throw new IllegalStateException("Futures already set");
-                }
-                return this;
             }
 
             @Override
@@ -109,7 +67,46 @@ public class AsyncQuorum {
 
             @Override
             public ITypeListener<T> getListener() {
-                return listener;
+                return getListener(null);
+            }
+
+            @Override
+            public ITypeListener<T> getListener(@Nullable final ErrorHandler<T> handler) {
+                return new TypeListener<T>(type) {
+                    @Override
+                    public void onComplete(final Future<T> f) throws InterruptedException {
+                        try {
+                            final T r = f.get();
+                            while (true) {
+                                final Status<R> current = result.get();
+                                final R folded = filter.fold(current.result, r);
+                                final Status<R> updated = new Status<>(folded, current.success + 1, current.fail);
+                                if (result.compareAndSet(current, updated)) {
+                                    sema.release();
+                                    return;
+                                }
+                            }
+                        } catch (ExecutionException e) {
+                            if (handler != null) {
+                                handler.handleFailed(f, e);
+                            }
+                            while (true) {
+                                final Status<R> current = result.get();
+                                final Status<R> updated = new Status<>(current.result, current.success, current.fail + 1);
+                                if (result.compareAndSet(current, updated)) {
+                                    if (updated.fail > total - quorum) {
+                                        sema.release(quorum); // release all
+                                    }
+                                    return;
+                                }
+                            }
+                        } catch (CancellationException c) {
+                            if (handler != null) {
+                                handler.handleFailed(f, null);
+                            }
+                        }
+                    }
+                };
             }
 
             private R extractResult() {
@@ -127,6 +124,8 @@ public class AsyncQuorum {
         Context<R, T> setFutures(@NotNull final Future... futures);
 
         ITypeListener<T> getListener();
+
+        ITypeListener<T> getListener(@Nullable ErrorHandler<T> handler);
 
     }
 
@@ -155,7 +154,7 @@ public class AsyncQuorum {
     }
 
     public static void main(String[] args) throws ExecutionException, InterruptedException, TimeoutException {
-        final String url = "http://localhost:8086/";
+        final String url = "http://localhost:8080/";
         final RemoteConnector conn = RemoteConnector.getInstance();
         final ResultFilter<String, String> myFilter = new ResultFilter<String, String>() {
             @Nullable
@@ -170,27 +169,27 @@ public class AsyncQuorum {
                 return current;
             }
         };
-        Context<String, String> ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        Context<String, String> ctx = AsyncQuorum.createContext(2, 2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get());
-        ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        ctx = AsyncQuorum.createContext(2, 3, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get());
-        ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        ctx = AsyncQuorum.createContext(2, 3, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns", "key2", ctx.getListener()) // will result in error (404)
         );
         System.out.println("done " + ctx.get());
-        ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        ctx = AsyncQuorum.createContext(2, 3, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns", "key2", ctx.getListener()), // will result in error (404)
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
@@ -200,13 +199,13 @@ public class AsyncQuorum {
 
         // timeout
 
-        ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        ctx = AsyncQuorum.createContext(2, 2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get(1000, TimeUnit.MILLISECONDS));
-        ctx = AsyncQuorum.createContext(3, myFilter, RemoteConnector.STRING_TYPE);
+        ctx = AsyncQuorum.createContext(3, 2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener()),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener())

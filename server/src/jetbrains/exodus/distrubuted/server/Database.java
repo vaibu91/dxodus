@@ -1,6 +1,7 @@
 package jetbrains.exodus.distrubuted.server;
 
 import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.UniformInterfaceException;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.ByteIterator;
@@ -24,9 +25,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -76,7 +75,6 @@ public class Database {
                 }
             });
         }
-        final Map<Future, String> futureToFriends = new HashMap<>();
         final ValueTimeStampTuple seed = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ValueTimeStampTuple>() {
             @Override
             public ValueTimeStampTuple compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
@@ -95,7 +93,7 @@ public class Database {
         final long localTimeStamp = seed == null ? 0 : seed.getTimeStamp();
         final int maxFriends = Math.min(app.replicationReadDegree, friends.length);
         AsyncQuorum.Context<ValueTimeStampTuple, ValueTimeStampTuple> ctx =
-                AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
+                AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends), maxFriends,
                         new AsyncQuorum.ResultFilter<ValueTimeStampTuple, ValueTimeStampTuple>() {
                             @Nullable
                             @Override
@@ -115,29 +113,29 @@ public class Database {
                                 }
                                 return prev;
                             }
-                        }, new AsyncQuorum.ErrorHandler<ValueTimeStampTuple>() {
-                            @Override
-                            public void handleFailed(Future<ValueTimeStampTuple> failed, ExecutionException t) {
-                                final String friend = futureToFriends.get(failed);
-                                if (t == null) { // null means "cancelled"
-                                    log.info("Get REPL cancelled for [" + friend + "]");
-                                } else {
-                                    log.warn("Removing [" + friend + "] due to exception " + t.getClass().getName() + ":" + t.getMessage());
-                                    if (friend != null) { // workaround
-                                        app.removeFriends(friend);
-                                    }
-                                }
-                            }
-                        },
-                        RemoteConnector.REPL_TYPE
+                        }, RemoteConnector.REPL_TYPE
                 );
-        final Future[] futures = new Future[maxFriends];
         int i = 0;
+        final Future[] futures = new Future[maxFriends];
         for (final String friend : friends) {
             log.info("Replicate get to: " + friend);
-            final Future<ValueTimeStampTuple> future = RemoteConnector.getInstance().getAsyncRepl(friend, ns, key, localTimeStamp, ctx.getListener());
-            futures[i++] = future;
-            futureToFriends.put(future, friend);
+            futures[i++] = RemoteConnector.getInstance().getAsyncRepl(friend, ns, key, localTimeStamp, ctx.getListener(new AsyncQuorum.ErrorHandler<ValueTimeStampTuple>() {
+                @Override
+                public void handleFailed(Future<ValueTimeStampTuple> failed, ExecutionException t) {
+                    if (t == null) { // null means "cancelled"
+                        log.info("Get REPL cancelled for [" + friend + "]");
+                    } else {
+                        final Throwable cause = t.getCause();
+                        if (cause instanceof UniformInterfaceException) {
+                            if (((UniformInterfaceException)cause).getResponse().getStatus() == Response.Status.NOT_FOUND.getStatusCode()) {
+                                return;
+                            }
+                        }
+                        log.warn("Removing [" + friend + "] due to exception " + t.getClass().getName() + ":" + t.getMessage());
+                        app.removeFriends(friend);
+                    }
+                }
+            }));
             if (i >= maxFriends) {
                 break;
             }
@@ -266,38 +264,31 @@ public class Database {
                 return;
             }
             final int maxFriends = Math.min(app.replicationWriteDegree, friends.length);
-            final Map<Future, String> futureToFriends = new HashMap<>();
             AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
-                    AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends),
+                    AsyncQuorum.createContext(Math.min(app.friendDegree, maxFriends), maxFriends,
                             new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
                                 @Nullable
                                 @Override
                                 public ClientResponse fold(@Nullable ClientResponse prev, @Nullable ClientResponse current) {
                                     return current;
                                 }
-                            }, new AsyncQuorum.ErrorHandler<ClientResponse>() {
-                                @Override
-                                public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
-                                    final String friend = futureToFriends.get(failed);
-                                    if (t == null) { // null means "cancelled"
-                                        log.info("Replication cancelled for [" + friend + "]");
-                                    } else {
-                                        log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
-                                        if (friend != null) {
-                                            app.removeFriends(friend);
-                                        }
-                                    }
-                                }
-                            },
-                            RemoteConnector.RESP_TYPE
+                            }, RemoteConnector.RESP_TYPE
                     );
-            final Future[] futures = new Future[maxFriends];
             int i = 0;
+            final Future[] futures = new Future[maxFriends];
             for (final String friend : friends) {
                 log.info("Schedule replication to: " + friend);
-                final Future<ClientResponse> future = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp);
-                futures[i++] = future;
-                futureToFriends.put(future, friend);
+                futures[i++] = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(new AsyncQuorum.ErrorHandler<ClientResponse>() {
+                    @Override
+                    public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
+                        if (t == null) { // null means "cancelled"
+                            log.info("Replication cancelled for [" + friend + "]");
+                        } else {
+                            log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                            app.removeFriends(friend);
+                        }
+                    }
+                }), timeStamp);
                 if (i >= maxFriends) {
                     break;
                 }

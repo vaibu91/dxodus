@@ -59,7 +59,7 @@ public class FriendsDiscovery {
                             // make friends
                             App.getInstance().addFriends(data);
                             // make friends from remote
-                            final AsyncQuorum.Context<String[], String[]> ctx = AsyncQuorum.createContext(0, new AsyncQuorum.ResultFilter<String[], String[]>() {
+                            final AsyncQuorum.Context<String[], String[]> ctx = AsyncQuorum.createContext(0, 1, new AsyncQuorum.ResultFilter<String[], String[]>() {
                                 @Nullable
                                 @Override
                                 public String[] fold(@Nullable String[] prev, @NotNull String[] current) {
@@ -67,9 +67,8 @@ public class FriendsDiscovery {
                                     return current;
                                 }
                             }, RemoteConnector.STRING_ARR_TYPE);
-                            ctx.setFutures(
-                                    RemoteConnector.getInstance().friendsAsync(data, App.getInstance().getBaseURI().toString(), ctx.getListener())
-                            ).get();
+                            RemoteConnector.getInstance().friendsAsync(data, App.getInstance().getBaseURI().toString(), ctx.getListener());
+                            ctx.get();
                         }
                     }
                 } catch (Exception e) {
