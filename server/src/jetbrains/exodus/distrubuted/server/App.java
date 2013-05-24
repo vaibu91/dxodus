@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
 import java.security.SecureRandom;
 import java.util.*;
@@ -317,7 +316,7 @@ public class App {
                 // get own ip
                 for (int p : ports) {
                     try {
-                        baseUrl = "http://" + InetAddress.getLocalHost().getHostAddress() + ":" + p + "/";
+                        baseUrl = "http://" + Utils.getLocalAddress().getHostAddress() + ":" + p + "/";
                         baseURI = URI.create(baseUrl);
                         server = HttpServerFactory.create(baseURI, getResourceConfig());
                         break;

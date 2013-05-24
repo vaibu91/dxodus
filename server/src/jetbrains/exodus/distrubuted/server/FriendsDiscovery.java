@@ -8,10 +8,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
 
 public class FriendsDiscovery {
 
@@ -84,7 +80,7 @@ public class FriendsDiscovery {
     }
 
     public void discoverFriends() {
-        for (InetAddress bc : getBroadcastAddresses()) {
+        for (InetAddress bc : Utils.getBroadcastAddresses()) {
             final byte[] data = App.getInstance().getBaseURI().toString().getBytes();
 
             for (int p : ports) {
@@ -97,40 +93,6 @@ public class FriendsDiscovery {
                 }
             }
         }
-    }
-
-    private List<InetAddress> getBroadcastAddresses() {
-        ArrayList<InetAddress> listOfBroadcasts = new ArrayList<>();
-        Enumeration list;
-        try {
-            list = NetworkInterface.getNetworkInterfaces();
-
-            while (list.hasMoreElements()) {
-                NetworkInterface iface = (NetworkInterface) list.nextElement();
-
-                if (iface == null) continue;
-
-                if (!iface.isLoopback() && iface.isUp()) {
-                    log.info("Found non-loopback, up interface:" + iface);
-
-                    Iterator it = iface.getInterfaceAddresses().iterator();
-                    while (it.hasNext()) {
-                        InterfaceAddress address = (InterfaceAddress) it.next();
-
-                        if (address == null) continue;
-                        InetAddress broadcast = address.getBroadcast();
-                        if (broadcast != null) {
-                            listOfBroadcasts.add(broadcast);
-                            log.info("Found address: " + address);
-                        }
-                    }
-                }
-            }
-        } catch (SocketException ex) {
-            return new ArrayList<>();
-        }
-
-        return listOfBroadcasts;
     }
 
 }
