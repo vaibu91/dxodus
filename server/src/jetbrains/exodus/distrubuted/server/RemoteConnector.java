@@ -13,6 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,13 @@ public class RemoteConnector {
     private static final TypeListener<ClientResponse> RESP_L = new TypeListener<ClientResponse>(new GenericType<ClientResponse>(ClientResponse.class)) {
         @Override
         public void onComplete(Future<ClientResponse> f) throws InterruptedException {
+        }
+    };
+    private static final GenericType<List<NameSpaceKVIterableTuple>> DATA_TYPE = new GenericType<List<NameSpaceKVIterableTuple>>() {
+    };
+    private static final TypeListener<List<NameSpaceKVIterableTuple>> DATA_L = new TypeListener<List<NameSpaceKVIterableTuple>>(DATA_TYPE) {
+        @Override
+        public void onComplete(Future<List<NameSpaceKVIterableTuple>> f) throws InterruptedException {
         }
     };
 
@@ -111,6 +119,15 @@ public class RemoteConnector {
         return r.get(l);
     }
 
+    public List<NameSpaceKVIterableTuple> data(@NotNull final String url, final long timeStamp, final long timeout) throws TimeoutException {
+        return wrapFuture(timeout, dataAsync(url, timeStamp, DATA_L));
+    }
+
+    public Future<List<NameSpaceKVIterableTuple>> dataAsync(@NotNull final String url, final long timeStamp,
+                                                                @NotNull final ITypeListener<List<NameSpaceKVIterableTuple>> l) {
+        return c.asyncResource(url + "data/" + timeStamp).get(l);
+    }
+
     public void destroy() {
         c.destroy();
     }
@@ -126,6 +143,8 @@ public class RemoteConnector {
         final RemoteConnector conn = RemoteConnector.getInstance();
         System.out.println(conn.put(url, "ns1", "key2", val, 1000).getStatus());
         System.out.println(conn.get(url, "ns1", "key2", 1000));
+        System.out.println(Arrays.toString(conn.friends(url, null, 1000)));
+        System.out.println(conn.data(url, 0, 1000));
         System.out.println(Arrays.toString(conn.friends(url, null, 1000)));
     }
 

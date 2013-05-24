@@ -127,8 +127,8 @@ public class Database {
     }
 
     @GET
-    @Path("/data")
-    public List<NameSpaceKVIterableTuple> doGetData(@NotNull @QueryParam("timeStamp") final Long timeStamp) {
+    @Path("/data/{timeStamp}")
+    public List<NameSpaceKVIterableTuple> doGetData(@PathParam("timeStamp") final long timeStamp) {
         final App app = App.getInstance();
         return app.getEnvironment().computeInTransaction(new TransactionalComputable<List<NameSpaceKVIterableTuple>>() {
             @Override

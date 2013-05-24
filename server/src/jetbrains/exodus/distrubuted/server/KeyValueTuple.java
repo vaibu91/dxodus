@@ -5,10 +5,13 @@ import org.jetbrains.annotations.NotNull;
 public class KeyValueTuple {
 
     @NotNull
-    private final String key;
+    private String key;
     @NotNull
-    private final String value;
-    private final long timeStamp;
+    private String value;
+    private long timeStamp;
+
+    public KeyValueTuple() {
+    }
 
     public KeyValueTuple(@NotNull final String key, @NotNull final String value, final long timeStamp) {
         this.key = key;
