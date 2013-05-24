@@ -98,12 +98,17 @@ public class RemoteConnector {
         return r.post(l, formData);
     }
 
-    public String[] friends(@NotNull final String url, long timeout) throws TimeoutException {
-        return wrapFuture(timeout, friendsAsync(url, STRING_ARR_L));
+    public String[] friends(@NotNull final String url, @Nullable String myUri, long timeout) throws TimeoutException {
+        return wrapFuture(timeout, friendsAsync(url, myUri, STRING_ARR_L));
     }
 
-    public Future<String[]> friendsAsync(@NotNull final String url, @NotNull final ITypeListener<String[]> l) {
-        return c.asyncResource(url + "friends").get(l);
+    public Future<String[]> friendsAsync(@NotNull final String url, @Nullable String myUri, @NotNull final ITypeListener<String[]> l) {
+        System.out.println("Ask for friends from " + url);
+        AsyncWebResource r = c.asyncResource(url + "friends");
+        if (myUri != null) {
+            r = r.queryParam("friendUri", myUri);
+        }
+        return r.get(l);
     }
 
     public void destroy() {
@@ -121,7 +126,7 @@ public class RemoteConnector {
         final RemoteConnector conn = RemoteConnector.getInstance();
         System.out.println(conn.put(url, "ns1", "key2", val, 1000).getStatus());
         System.out.println(conn.get(url, "ns1", "key2", 1000));
-        System.out.println(Arrays.toString(conn.friends(url, 1000)));
+        System.out.println(Arrays.toString(conn.friends(url, null, 1000)));
     }
 
     private static <T> T wrapFuture(final long timeout, @NotNull final Future<T> future) throws TimeoutException {

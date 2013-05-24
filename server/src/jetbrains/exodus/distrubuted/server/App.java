@@ -166,7 +166,11 @@ public class App {
             final PersistentHashSet<String> newSet = oldSet == null ? new PersistentHashSet<String>() : oldSet.getClone();
             final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
             for (final String friend : friends) {
-                mutableSet.add(friend);
+                // do not make friends with yourself
+                if (!URI.create(friend).equals(getBaseURI())) {
+                    System.out.println("Add friend [" + friend + "]");
+                    mutableSet.add(friend);
+                }
             }
             mutableSet.endWrite();
             if (this.friends.compareAndSet(oldSet, newSet)) {
@@ -237,6 +241,9 @@ public class App {
                     getInstance().close();
                 }
             }));
+
+            FriendsDiscovery.getInstance().discoverFriends();
+
         } catch (IOException ex) {
             System.out.println("I/O Error");
             ex.printStackTrace();
