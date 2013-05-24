@@ -346,6 +346,7 @@ public class App {
             }
 
             App.INSTANCE = new App(baseURI, server, environment);
+            new InitialReplicator();
             App.getInstance().addFriends(parseFriends());
             server.start();
             log.info("Start server " + baseURI.toString());
@@ -357,7 +358,6 @@ public class App {
                 }
             }));
 
-            new InitialReplicator();
             FriendsDiscovery.getInstance().discoverFriends();
 
         } catch (IOException ex) {
