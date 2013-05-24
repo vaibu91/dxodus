@@ -57,20 +57,28 @@ public class BackgroundReplicator {
         }
     }
 
+    private String takeFriend() {
+        try {
+            return friendsQueue.take();
+        } catch (InterruptedException e) {
+            return fakeFriend;
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private class ReplicationLoop implements Runnable {
 
         @Override
         public void run() {
             log.info("Background Replicator started");
-            try {
-                final App app = App.getInstance();
-                final URI baseURI = app.getBaseURI();
-                final RemoteConnector conn = RemoteConnector.getInstance();
+            final App app = App.getInstance();
+            final URI baseURI = app.getBaseURI();
+            final RemoteConnector conn = RemoteConnector.getInstance();
 
-                String friend;
-                //noinspection StringEquality
-                while ((friend = friendsQueue.take()) != fakeFriend) {
+            String friend;
+            //noinspection StringEquality
+            while ((friend = takeFriend()) != fakeFriend) {
+                try {
                     // at first replicate friends
                     if (!URI.create(friend).equals(baseURI)) {
                         log.info("Replicating friends of [" + friend + "] started");
@@ -135,12 +143,11 @@ public class BackgroundReplicator {
                         }
                     }
                     log.info("Replicating data of [" + friend + "] finished");
+                } catch (Throwable t) {
+                    log.error("Background Replicator error, friend [" + friend + "]", t);
                 }
-            } catch (Throwable t) {
-                log.error("Background Replicator error", t);
-            } finally {
-                log.info("Background Replicator finished");
             }
+            log.info("Background Replicator finished");
         }
     }
 }
