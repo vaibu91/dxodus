@@ -138,9 +138,15 @@ public class App {
 
     @NotNull
     public String[] getNamespaces(@NotNull final Transaction txn) {
+        final List<String> result = new ArrayList<>();
         final List<String> nsList = environment.getAllStoreNames(txn);
-        final int size = nsList.size();
-        return size > 0 ? nsList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+        for (final String ns : nsList) {
+            if (!ns.endsWith(NS_IDX_SUFFIX)) {
+                result.add(ns);
+            }
+        }
+        final int size = result.size();
+        return size > 0 ? result.toArray(new String[size]) : EMPTY_STRING_ARRAY;
     }
 
     @NotNull
@@ -158,7 +164,7 @@ public class App {
         final List<String> result = new ArrayList<>();
         final List<String> nsList = environment.getAllStoreNames(txn);
         for (final String ns : nsList) {
-            if (!ns.endsWith("ns#idx")) {
+            if (!ns.endsWith(NS_IDX_SUFFIX)) {
                 final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
                 // throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
                 if (timeStampEntry != null && LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
