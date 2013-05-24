@@ -147,7 +147,10 @@ public class Database {
             }
             return result.getValue();
         } catch (QuorumException q) {
-            log.info("No quorum reached: " + key);
+            log.warn("No quorum reached: " + key);
+            if (seed != null) {
+                return seed.getValue();
+            }
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
