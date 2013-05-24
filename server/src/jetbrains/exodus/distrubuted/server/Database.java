@@ -143,7 +143,6 @@ public class Database {
         ctx.setFutures(futures);
         try {
             final ValueTimeStampTuple result = ctx.get(1000, TimeUnit.MILLISECONDS);
-            ctx.cancel(true); // cancel other jobs
             log.info("Get replicated successfully");
             if (result == null) {
                 log.info("No data by key at all: " + key);
@@ -158,6 +157,8 @@ public class Database {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
+        } finally {
+            ctx.cancel(true); // cancel other jobs
         }
     }
 
@@ -296,7 +297,6 @@ public class Database {
             ctx.setFutures(futures);
             try {
                 ctx.get(1000, TimeUnit.MILLISECONDS);
-                ctx.cancel(true); // cancel other jobs
                 log.warn("Replicated successfuly");
             } catch (QuorumException q) {
                 log.warn("Replication quorum error, looks like a lot of friends went down: " + q.getMessage());
@@ -304,6 +304,8 @@ public class Database {
                 log.warn("Replication quorum timeout: " + t.getMessage());
             } catch (Throwable t) {
                 log.error("Replication error", t);
+            } finally {
+                ctx.cancel(true); // cancel other jobs
             }
         }
     }
