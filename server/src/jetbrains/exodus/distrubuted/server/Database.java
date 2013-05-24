@@ -43,6 +43,13 @@ public class Database {
     }
 
     @GET
+    @Path("/html/{ns}/{key}")
+    @Produces(MediaType.TEXT_HTML)
+    public String doGetHtml(@PathParam("ns") final String ns, @PathParam("key") final String key) {
+        return doGet(ns, key);
+    }
+
+    @GET
     @Path("/{ns}/{key}")
     @Produces(MediaType.TEXT_PLAIN)
     public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key) {

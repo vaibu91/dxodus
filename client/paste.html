@@ -57,20 +57,30 @@
                     var it = this;
                     var f = function() {
                         it.baseurl = it.getRandomUrl();
-                        $.ajax({
-                            url: it.baseurl
-                        }).done(function() {
-                           console.info("Select host " + it.baseurl);
-                           call();
-                        }).error(function() {
-                           console.info("Remove host " + it.baseurl);
-                           // remove friend and try again
-                           it.urls.splice(it.urls.indexOf(it.baseurl), 1);
-                           f();
+                        it.ping(it.baseurl, function() {
+                            console.info("Select host " + it.baseurl);
+                            call();
+                        }, function() {
+                            console.info("Remove host " + it.baseurl);
+                            // remove friend and try again
+                            it.urls.splice(it.urls.indexOf(it.baseurl), 1);
+                            f();
                         });
                     }
 
                     f();
+                },
+
+                ping: function(url, done, error) {
+                    var it = this;
+                    $.ajax({
+                        url: url
+                    }).done(function() {
+                        done();
+                    }).error(function() {
+                        it.removeFriend(url);
+                        if (error) error();
+                   })
                 },
 
                 take: function(ns, key, done) {
@@ -101,13 +111,26 @@
                     });
                 },
 
+                removeFriend: function(url) {
+                    if (this.urls.indexOf(url) >= 0) {
+                        console.info("Remove host " + url);
+                        this.urls.splice(this.urls.indexOf(url), 1);
+                        this.printFriends();
+                    }
+                },
+
                 updateFriends: function() {
                     $.each(this.urls, function(index, value) {
                         dexodus.getFriends(value, function(data) {
                             $.each(data, function(index, value) {
                                 if (dexodus.urls.indexOf(value) == -1) {
-                                    console.info("Add host " + value);
-                                    dexodus.urls.push(value);
+                                    dexodus.ping(value, function(){
+                                        if (dexodus.urls.indexOf(value) == -1) {
+                                            console.info("Add host " + value);
+                                            dexodus.urls.push(value);
+                                            dexodus.printFriends();
+                                        }
+                                    });
                                 }
                             })
                         })
@@ -122,8 +145,7 @@
                     }).done(function(data) {
                         done(data);
                     }).error(function() {
-                        console.info("Remove host " + url);
-                        it.urls.splice(it.urls.indexOf(url), 1);
+                        it.removeFriend(url);
                     });
                 },
 
@@ -144,6 +166,14 @@
                             $("#viewPaste").val(data);
                         });
                     });
+                },
+
+                printFriends: function(){
+                    console.info("========");
+                    $.each(dexodus.urls, function(index, value) {
+                        console.info(value);
+                    });
+                    console.info("========");
                 }
             }
 
@@ -153,11 +183,7 @@
             }, 30000);
 
             window.setInterval(function() {
-                console.info("========");
-                $.each(dexodus.urls, function(index, value) {
-                    console.info(value);
-                })
-                console.info("========");
+                dexodus.printFriends()
             }, 10000);
 
             $("#paste").keydown(function(e) {
