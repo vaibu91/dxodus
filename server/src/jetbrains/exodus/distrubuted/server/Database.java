@@ -1,5 +1,6 @@
 package jetbrains.exodus.distrubuted.server;
 
+import com.sun.jersey.api.client.ClientResponse;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.core.dataStructures.hash.IntHashSet;
 import jetbrains.exodus.database.ByteIterable;
@@ -14,6 +15,7 @@ import jetbrains.exodus.database.persistence.Store;
 import jetbrains.exodus.database.persistence.Transaction;
 import jetbrains.exodus.database.persistence.TransactionalComputable;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,9 +24,11 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Path("")
 @Produces(MediaType.APPLICATION_JSON)
@@ -168,27 +172,53 @@ public class Database {
 
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
         final App app = App.getInstance();
-        final Random random = app.getRandom();
-        final IntHashSet replicated = new IntHashSet();
-        String[] friends = app.getFriends();
-
-        while (replicated.size() < app.friendDegree && replicated.size() < friends.length && friends.length > 0) {
-            int f;
-            for (f = random.nextInt(friends.length); replicated.contains(f); ) {
-                f = random.nextInt(friends.length);
+        final String[] friends = app.getFriends();
+        final int friendsCount = friends.length;
+        if (friendsCount == 0) {
+            return;
+        }
+        if (friendsCount > 1) {
+            // shuffle
+            final Random random = app.getRandom();
+            for (int i = friendsCount - 1; i >= 0; i--) {
+                final int index = random.nextInt(i + 1);
+                final String a = friends[index];
+                friends[index] = friends[i];
+                friends[i] = a;
             }
-            log.info("Replicate put to [" + friends[f] + "]");
-            try {
-                RemoteConnector.getInstance().put(friends[f], ns, key, value, 1000, timeStamp);
-                replicated.add(f);
-                log.info("Replicated: " + replicated.size() + ". Friends: " + friends.length);
-            } catch (Exception e) {
-//                e.printStackTrace();
-                log.info("Exception for [" + friends[f] + "] " + e.getClass().getName() + ":" + e.getMessage());
-                // remove bad friend
-                app.removeFriends(friends[f]);
-                friends = app.getFriends();
-            }
+        }
+        final Map<Future, String> futureToFriends = new HashMap<>();
+        AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
+                AsyncQuorum.createContext(Math.min(app.friendDegree, friendsCount),
+                        new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
+                            @NotNull
+                            @Override
+                            public ClientResponse fold(@Nullable ClientResponse prev, @NotNull ClientResponse current) {
+                                return current;
+                            }
+                        }, new AsyncQuorum.ErrorHandler<ClientResponse>() {
+                            @Override
+                            public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
+                                final String friend = futureToFriends.get(failed);
+                                log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                                if (friend != null) {
+                                    app.removeFriends(friend);
+                                }
+                            }
+                        },
+                        RemoteConnector.RESP_TYPE
+                );
+        for (final String friend : app.getFriends()) {
+            futureToFriends.put(RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp), friend);
+        }
+        try {
+            ctx.get(1000, TimeUnit.MILLISECONDS);
+            ctx.cancel(true); // cancel other jobs
+            log.warn("Replicated successfuly");
+        } catch (TimeoutException t) {
+            log.warn("Replication quorum timeout: " + t.getMessage());
+        } catch (Throwable t) {
+            log.error("Replication error", t);
         }
     }
 }

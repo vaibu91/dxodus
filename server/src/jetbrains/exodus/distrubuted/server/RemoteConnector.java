@@ -38,7 +38,8 @@ public class RemoteConnector {
         public void onComplete(Future<String[]> f) throws InterruptedException {
         }
     };
-    private static final TypeListener<ClientResponse> RESP_L = new TypeListener<ClientResponse>(new GenericType<ClientResponse>(ClientResponse.class)) {
+    public static final GenericType<ClientResponse> RESP_TYPE = new GenericType<ClientResponse>(ClientResponse.class);
+    private static final TypeListener<ClientResponse> RESP_L = new TypeListener<ClientResponse>(RESP_TYPE) {
         @Override
         public void onComplete(Future<ClientResponse> f) throws InterruptedException {
         }

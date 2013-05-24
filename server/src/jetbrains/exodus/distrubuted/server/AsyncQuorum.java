@@ -14,6 +14,11 @@ public class AsyncQuorum {
     private static final Future[] NO_FUTURES = new Future[0];
 
     public static <R, T> Context<R, T> createContext(final int quorum, final ResultFilter<R, T> filter, final GenericType<T> type) {
+        return createContext(quorum, filter, null, type);
+    }
+
+    public static <R, T> Context<R, T> createContext(final int quorum, final ResultFilter<R, T> filter,
+                                                     final ErrorHandler<T> handler, final GenericType<T> type) {
         return new Context<R, T>() {
             private final AtomicReference<Future[]> futures = new AtomicReference<>();
             private final AtomicReference<Status<R>> result = new AtomicReference<>(new Status<R>(null, 0, 0));
@@ -33,6 +38,9 @@ public class AsyncQuorum {
                             }
                         }
                     } catch (ExecutionException e) {
+                        if (handler != null) {
+                            handler.handleFailed(f, e);
+                        }
                         while (true) {
                             final Status<R> current = result.get();
                             final Status<R> updated = new Status<>(current.result, current.success, current.fail + 1);
@@ -127,6 +135,11 @@ public class AsyncQuorum {
     public static interface ResultFilter<R, T> {
         @NotNull
         R fold(@Nullable R prev, @NotNull T current);
+    }
+
+    public static interface ErrorHandler<T> {
+
+        void handleFailed(Future<T> failed, ExecutionException t);
     }
 
     private static class Status<R> {
