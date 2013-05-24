@@ -39,8 +39,7 @@ public class FriendsDiscovery {
     }
 
     private void listen() {
-        new Thread() {
-            @Override
+        new Thread(new Runnable() {
             public void run() {
                 try {
                     System.out.println("Listen on " + socket.getLocalAddress() + " from " + socket.getPort() + " port " + socket.getBroadcast());
@@ -76,7 +75,7 @@ public class FriendsDiscovery {
                     e.printStackTrace();
                 }
             }
-        }.start();
+        }).start();
     }
 
     public void discoverFriends() {
