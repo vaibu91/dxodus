@@ -16,8 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.security.SecureRandom;
 import java.util.*;
@@ -377,6 +376,8 @@ public class App {
 
             FriendsDiscovery.getInstance().discoverFriends();
 
+            loadSourcesIfNecessary();
+
         } catch (IOException ex) {
             log.info("I/O Error");
             ex.printStackTrace();
@@ -398,6 +399,48 @@ public class App {
             return EMPTY_STRING_ARRAY;
         }
         return friends.split(",");
+    }
+
+    private static void loadSourcesIfNecessary() {
+        final String sourceDir = System.getProperty("dexodus.sourcePath");
+        if (sourceDir != null) {
+            final File sourcePath = new File(sourceDir);
+            if (sourcePath.isDirectory()) {
+                loadPathSources(sourcePath);
+            }
+        }
+    }
+
+    private static void loadPathSources(File sourcePath) {
+        final char[] buf = new char[2048];
+        for (final File javaFile : sourcePath.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".java");
+            }
+        })) {
+            log.info("Loading [" + javaFile + "]");
+            try {
+                final StringBuilder contentBuilder = new StringBuilder((int) javaFile.length());
+                try (final FileReader reader = new FileReader(javaFile)) {
+                    int read;
+                    while ((read = reader.read(buf)) != -1) {
+                        contentBuilder.append(buf, 0, read);
+                    }
+                }
+                Database.putLocally("java", javaFile.getName(), contentBuilder.toString(), javaFile.lastModified());
+            } catch (IOException ioe) {
+                log.warn("Failed to load " + javaFile);
+            }
+        }
+        for (final File path : sourcePath.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.isDirectory();
+            }
+        })) {
+            loadPathSources(path);
+        }
     }
 
     public static interface FriendsListener {

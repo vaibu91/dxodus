@@ -23,7 +23,10 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -185,12 +188,7 @@ public class Database {
                            @Context UriInfo uriInfo) {
         log.info("POST to " + App.getInstance().getBaseURI().toString());
 
-        final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
-            @Override
-            public Long compute(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx, @NotNull final App app) {
-                return putLocally(txn, namespace, idx, app, key, value, timeStamp);
-            }
-        });
+        final Long nextTimeStamp = putLocally(ns, key, value, timeStamp);
 
         if (nextTimeStamp == null) {
             log.info("Ignore put - timestamp is smaller.");
@@ -308,6 +306,15 @@ public class Database {
                 log.error("Replication error", t);
             }
         }
+    }
+
+    public static Long putLocally(String ns, final String key, final String value, final Long timeStamp) {
+        return App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
+            @Override
+            public Long compute(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx, @NotNull final App app) {
+                return putLocally(txn, namespace, idx, app, key, value, timeStamp);
+            }
+        });
     }
 
     public static Long putLocally(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx,
