@@ -28,7 +28,8 @@ public class RemoteConnector {
         public void onComplete(Future<String> f) throws InterruptedException {
         }
     };
-    private static final TypeListener<String[]> STRING_ARR_L = new TypeListener<String[]>(new GenericType<String[]>(String[].class)) {
+    public static final GenericType<String[]> STRING_ARR_TYPE = new GenericType<String[]>(String[].class);
+    private static final TypeListener<String[]> STRING_ARR_L = new TypeListener<String[]>(STRING_ARR_TYPE) {
         @Override
         public void onComplete(Future<String[]> f) throws InterruptedException {
         }

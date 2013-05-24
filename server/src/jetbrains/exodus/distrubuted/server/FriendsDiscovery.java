@@ -1,5 +1,8 @@
 package jetbrains.exodus.distrubuted.server;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.IOException;
 import java.net.*;
 import java.util.ArrayList;
@@ -56,7 +59,17 @@ public class FriendsDiscovery {
                             // make friends
                             App.getInstance().addFriends(data);
                             // make friends from remote
-                            App.getInstance().addFriends(RemoteConnector.getInstance().friends(data, App.getInstance().getBaseURI().toString(), 1000));
+                             final AsyncQuorum.Context<String[], String[]> ctx = AsyncQuorum.createContext(0, new AsyncQuorum.ResultFilter<String[], String[]>() {
+                                @NotNull
+                                @Override
+                                public String[] fold(@Nullable String[] prev, @NotNull String[] current) {
+                                    App.getInstance().addFriends(current);
+                                    return current;
+                                }
+                            }, RemoteConnector.STRING_ARR_TYPE);
+                            ctx.setFutures(
+                                    RemoteConnector.getInstance().friendsAsync(data, App.getInstance().getBaseURI().toString(), ctx.getListener())
+                            ).get();
                         }
                     }
                 } catch (Exception e) {
