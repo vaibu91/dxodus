@@ -100,7 +100,7 @@ public class FriendsDiscovery {
     }
 
     private List<InetAddress> getBroadcastAddresses() {
-        ArrayList<InetAddress> listOfBroadcasts = new ArrayList();
+        ArrayList<InetAddress> listOfBroadcasts = new ArrayList<>();
         Enumeration list;
         try {
             list = NetworkInterface.getNetworkInterfaces();
