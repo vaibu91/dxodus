@@ -80,12 +80,14 @@ public class App {
 
     @SuppressWarnings("unchecked")
     public <T> T computeInTransaction(@NotNull final String ns, @NotNull NamespaceTransactionalComputable<T> computable) {
-        final Pair<Store, Store>[] storePair = new Pair[1];
+        final Pair<Store, Store>[] storePair = new Pair[]{null};
         final boolean[] localStores = new boolean[]{false};
         final Transaction txn = environment.beginTransaction(new Runnable() {
             @Override
             public void run() {
-                storePair[0] = namespaces.get(ns);
+                if (storePair[0] == null) {
+                    storePair[0] = namespaces.get(ns);
+                }
             }
         });
         txn.setCommitHook(new Runnable() {
