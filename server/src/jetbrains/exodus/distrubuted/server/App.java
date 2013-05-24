@@ -152,10 +152,8 @@ public class App {
         for (final String ns : nsList) {
             if (!ns.endsWith("ns#idx")) {
                 final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
-                if (timeStampEntry == null) {
-                    throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
-                }
-                if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
+                // throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
+                if (timeStampEntry != null && LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
                     result.add(ns);
                 }
             }
