@@ -13,10 +13,10 @@ public class AsyncQuorum {
 
     private static final Future[] NO_FUTURES = new Future[0];
 
-    public static <T> Context<T> createContext(final int quorum, final ResultFilter<T> filter, final GenericType<T> type) {
-        return new Context<T>() {
+    public static <R, T> Context<R, T> createContext(final int quorum, final ResultFilter<R, T> filter, final GenericType<T> type) {
+        return new Context<R, T>() {
             private final AtomicReference<Future[]> futures = new AtomicReference<>();
-            private final AtomicReference<Status<T>> result = new AtomicReference<>(new Status<T>(null, 0, 0));
+            private final AtomicReference<Status<R>> result = new AtomicReference<>(new Status<R>(null, 0, 0));
 
             private final TypeListener<T> listener = new TypeListener<T>(type) {
                 @Override
@@ -24,9 +24,9 @@ public class AsyncQuorum {
                     try {
                         final T r = f.get();
                         while (true) {
-                            final Status<T> current = result.get();
-                            final T folded = filter.fold(current.result, r);
-                            final Status<T> updated = new Status<>(folded, current.success + 1, current.fail);
+                            final Status<R> current = result.get();
+                            final R folded = filter.fold(current.result, r);
+                            final Status<R> updated = new Status<>(folded, current.success + 1, current.fail);
                             if (result.compareAndSet(current, updated)) {
                                 sema.release();
                                 return;
@@ -34,8 +34,8 @@ public class AsyncQuorum {
                         }
                     } catch (ExecutionException e) {
                         while (true) {
-                            final Status<T> current = result.get();
-                            final Status<T> updated = new Status<>(current.result, current.success, current.fail + 1);
+                            final Status<R> current = result.get();
+                            final Status<R> updated = new Status<>(current.result, current.success, current.fail + 1);
                             if (result.compareAndSet(current, updated)) {
                                 if (updated.fail > futures.get().length - quorum) {
                                     sema.release(quorum); // release all
@@ -83,17 +83,17 @@ public class AsyncQuorum {
             }
 
             @Override
-            public T get() throws InterruptedException, ExecutionException {
+            public R get() throws InterruptedException, ExecutionException {
                 sema.acquire(quorum);
                 return extractResult();
             }
 
             @Override
-            public T get(final long timeout, @NotNull final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            public R get(final long timeout, @NotNull final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
                 if (sema.tryAcquire(quorum, timeout, unit)) {
                     return extractResult();
                 }
-                final Status<T> status = result.get();
+                final Status<R> status = result.get();
                 if (status.success < quorum) {
                     throw new TimeoutException("quorum not reached");
                 }
@@ -105,8 +105,8 @@ public class AsyncQuorum {
                 return listener;
             }
 
-            private T extractResult() {
-                final Status<T> status = result.get();
+            private R extractResult() {
+                final Status<R> status = result.get();
                 if (status.success < quorum) {
                     throw new IllegalStateException("quorum not reached");
                 }
@@ -115,7 +115,7 @@ public class AsyncQuorum {
         };
     }
 
-    private static interface Context<T> extends Future<T> {
+    private static interface Context<R, T> extends Future<R> {
 
         void setFutures(@NotNull final Future... futures);
 
@@ -123,19 +123,19 @@ public class AsyncQuorum {
 
     }
 
-    private static interface ResultFilter<T> {
+    private static interface ResultFilter<R, T> {
         @NotNull
-        T fold(@Nullable T prev, @NotNull T current);
+        R fold(@Nullable R prev, @NotNull T current);
     }
 
-    private static class Status<T> {
+    private static class Status<R> {
 
         @Nullable
-        private final T result;
+        private final R result;
         private final int success;
         private final int fail;
 
-        private Status(@Nullable final T result, final int success, final int fail) {
+        private Status(@Nullable final R result, final int success, final int fail) {
             this.result = result;
             this.success = success;
             this.fail = fail;
@@ -145,7 +145,7 @@ public class AsyncQuorum {
     public static void main(String[] args) throws ExecutionException, InterruptedException, TimeoutException {
         final String url = "http://localhost:8086/";
         final RemoteConnector conn = RemoteConnector.getInstance();
-        final ResultFilter<String> myFilter = new ResultFilter<String>() {
+        final ResultFilter<String, String> myFilter = new ResultFilter<String, String>() {
             @NotNull
             @Override
             public String fold(@Nullable String prev, @NotNull String current) {
@@ -158,7 +158,7 @@ public class AsyncQuorum {
                 return current;
             }
         };
-        Context<String> ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
+        Context<String, String> ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
                 conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
                 conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
