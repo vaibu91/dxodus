@@ -89,6 +89,9 @@ public class Database {
                 return new ValueTimeStampTuple(t, IterableUtils.readString(itr));
             }
         });
+        if (seed == null) {
+            log.warn("No local data by key: " + key);
+        }
         final long localTimeStamp = seed == null ? 0 : seed.getTimeStamp();
         final int maxFriends = Math.min(app.replicationReadDegree, friends.length);
         AsyncQuorum.Context<ValueTimeStampTuple, ValueTimeStampTuple> ctx =
