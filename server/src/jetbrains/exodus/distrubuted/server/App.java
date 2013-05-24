@@ -18,7 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +32,8 @@ public class App {
     private static App INSTANCE;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final String NS_IDX_SUFFIX = "ns#idx";
+
+    private static int[] ports = new int[]{8080, 8082, 8888, 8089, 8087, 8086};
 
     private final URI baseURI;
     private final HttpServer server;
@@ -227,17 +231,41 @@ public class App {
     }
 
     public static void main(String[] args) {
-
         final EnvironmentConfig ec = new EnvironmentConfig();
         ec.setLogCacheShared(false);
         ec.setMemoryUsagePercentage(80);
         try {
             final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), ec);
-            final URI baseURI = URI.create(System.getProperty("dexodus.base.url", "http://localhost:8086/"));
-            final HttpServer server = HttpServerFactory.create(baseURI, getResourceConfig());
+            String baseUrl = System.getProperty("dexodus.base.url");
+            URI baseURI = null;
+            HttpServer server = null;
+
+            if (baseUrl == null) {
+                // get own ip
+                for (int p : ports) {
+                    try {
+                        baseUrl = "http://" + InetAddress.getLocalHost().getHostAddress() + ":" + p + "/";
+                        baseURI = URI.create(baseUrl);
+                        server = HttpServerFactory.create(baseURI, getResourceConfig());
+                        break;
+                    } catch (Exception e) {
+                        log.info("Can not start server on port " + p + ": " + e.getMessage());
+                    }
+                }
+
+                if (server == null) {
+                    return;
+                }
+            } else {
+                baseURI = URI.create(baseUrl);
+                server = HttpServerFactory.create(baseURI, getResourceConfig());
+            }
+
             App.INSTANCE = new App(baseURI, server, environment);
             App.getInstance().addFriends(parseFriends());
             server.start();
+            log.info("Start server " + baseURI.toString());
+
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 @Override
                 public void run() {
