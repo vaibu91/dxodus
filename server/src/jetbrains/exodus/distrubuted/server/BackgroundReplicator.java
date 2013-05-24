@@ -44,7 +44,7 @@ public class BackgroundReplicator {
             }
         });
         replicatingThread.setDaemon(true);
-        replicatingThread.setName("Distributed Exodus Initial Replicator");
+        replicatingThread.setName("Distributed Exodus Background Replicator");
         replicatingThread.start();
     }
 
@@ -62,7 +62,7 @@ public class BackgroundReplicator {
 
         @Override
         public void run() {
-            log.info("Initial Replicator started");
+            log.info("Background Replicator started");
             try {
                 final App app = App.getInstance();
                 final URI baseURI = app.getBaseURI();
@@ -108,7 +108,7 @@ public class BackgroundReplicator {
                     if (lastTimeStamp == Long.MAX_VALUE) {
                         log.info("No data to replicate from [" + friend + "]");
                     } else {
-                        log.info("Getting data from [" + friend + "] more recent than " + DateFormat.getDateInstance(DateFormat.LONG).format(new Date(lastTimeStamp)));
+                        log.info("Getting data from [" + friend + "] more recent than " + DateFormat.getDateTimeInstance().format(new Date(lastTimeStamp)));
                         final List<NameSpaceKVIterableTuple>[] data = new List[]{null};
                         try {
                             data[0] = conn.data(friend, lastTimeStamp, 10000);
@@ -137,9 +137,9 @@ public class BackgroundReplicator {
                     log.info("Replicating data of [" + friend + "] finished");
                 }
             } catch (Throwable t) {
-                log.error("Initial Replicator error", t);
+                log.error("Background Replicator error", t);
             } finally {
-                log.info("Initial Replicator finished");
+                log.info("Background Replicator finished");
             }
         }
     }
