@@ -45,7 +45,7 @@ public class BackgroundReplicator {
             }
         });
         replicatingThread.setDaemon(true);
-        replicatingThread.setName("Distributed Exodus Background Replicator");
+        replicatingThread.setName("repl");
         replicatingThread.start();
     }
 
