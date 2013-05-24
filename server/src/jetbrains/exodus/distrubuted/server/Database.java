@@ -122,7 +122,10 @@ public class Database {
                                 if (t == null) { // null means "cancelled"
                                     log.info("Get REPL cancelled for [" + friend + "]");
                                 } else {
-                                    log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                                    log.warn("Removing [" + friend + "] due to exception " + t.getClass().getName() + ":" + t.getMessage());
+                                    if (friend != null) { // workaround
+                                        app.removeFriends(friend);
+                                    }
                                 }
                             }
                         },
