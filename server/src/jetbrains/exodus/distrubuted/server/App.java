@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -224,7 +223,7 @@ public class App {
             log.info("Remove friend [" + friend + "]");
             if (listeners != null) {
                 for (final FriendsListener listener : listeners.getCurrent()) {
-                    listener.friendAdded(friend);
+                    listener.friendRemoved(friend);
                 }
             }
         }
@@ -374,8 +373,8 @@ public class App {
 
     public static interface FriendsListener {
 
-        void friendAdded(@NotNull final String url);
+        void friendAdded(@NotNull final String friend);
 
-        void friendRemoved(@NotNull final String url);
+        void friendRemoved(@NotNull final String friend);
     }
 }
