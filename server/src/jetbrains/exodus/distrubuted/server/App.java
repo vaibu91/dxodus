@@ -186,6 +186,7 @@ public class App {
             final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
             for (final String friend : friends) {
                 mutableSet.remove(friend);
+                System.out.println("Remove friend " + friend);
             }
             mutableSet.endWrite();
             if (this.friends.compareAndSet(oldSet, newSet)) {

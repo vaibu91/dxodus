@@ -106,6 +106,7 @@ public class Database {
             }
         });
         if (nextTimeStamp == null) {
+            System.out.println("Ignore put - timestamp is smaller.");
             return Response.status(Response.Status.NOT_ACCEPTABLE).build();
         }
 
@@ -168,7 +169,7 @@ public class Database {
         final Random random = app.getRandom();
         final IntHashSet replicated = new IntHashSet();
 
-        while (replicated.size() < app.friendsToReplicatePut && replicated.size() < friends.length) {
+        while (replicated.size() < app.friendsToReplicatePut && replicated.size() < friends.length && friends.length > 0) {
             int f;
             for (f = random.nextInt(friends.length); replicated.contains(f); ) {
                 f = random.nextInt(friends.length);
@@ -177,9 +178,10 @@ public class Database {
             try {
                 RemoteConnector.getInstance().put(friends[f], ns, key, value, 100, timeStamp);
                 replicated.add(f);
-            } catch (TimeoutException e) {
+                System.out.println("Replicated: " + replicated.size() + ". Friends: " + friends.length);
+            } catch (Exception e) {
 //                e.printStackTrace();
-                System.out.println("Timeout for [" + friends[f] + "]");
+                System.out.println("Exception for [" + friends[f] + "] " + e.getMessage());
                 // remove bad friend
                 app.removeFriends(friends[f]);
             }
