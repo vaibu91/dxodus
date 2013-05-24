@@ -358,7 +358,7 @@ public class App {
             }
 
             App.INSTANCE = new App(baseURI, server, environment);
-            new InitialReplicator();
+            final BackgroundReplicator backgroundReplicator = new BackgroundReplicator();
             App.getInstance().addFriends(parseFriends());
             server.start();
             log.info("Start server " + baseURI.toString());
@@ -366,6 +366,7 @@ public class App {
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    backgroundReplicator.close();
                     getInstance().close();
                 }
             }));

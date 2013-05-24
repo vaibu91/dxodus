@@ -1,7 +1,6 @@
 package jetbrains.exodus.distrubuted.server;
 
 import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.hash.HashSet;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.impl.bindings.LongBinding;
 import jetbrains.exodus.database.impl.bindings.StringBinding;
@@ -18,42 +17,44 @@ import java.net.URI;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 
-public class InitialReplicator {
+public class BackgroundReplicator {
 
-    private static Logger log = LoggerFactory.getLogger(InitialReplicator.class);
+    private static Logger log = LoggerFactory.getLogger(BackgroundReplicator.class);
+    private static String fakeFriend = "http://fake.friend/";
 
     private final BlockingQueue<String> friendsQueue;
-    private final Set<String> removedFriends;
+    private final Thread replicatingThread;
 
-    public InitialReplicator() {
+    public BackgroundReplicator() {
         friendsQueue = new LinkedBlockingQueue<>();
-        removedFriends = new HashSet<>();
-        final Thread replicatingThread = new Thread(new ReplicationLoop());
+        replicatingThread = new Thread(new ReplicationLoop());
         App.getInstance().addFriendsListener(new App.FriendsListener() {
             @Override
             public void friendAdded(@NotNull final String friend) {
-                try {
-                    friendsQueue.put(friend);
-                } catch (InterruptedException e) {
-                    log.error("Failed to put", e);
-                }
+                friendsQueue.offer(friend);
             }
 
             @Override
             public void friendRemoved(@NotNull final String friend) {
-                synchronized (removedFriends) {
-                    removedFriends.add(friend);
-                }
+                // nothing to do
             }
         });
         replicatingThread.setDaemon(true);
         replicatingThread.setName("Distributed Exodus Initial Replicator");
         replicatingThread.start();
+    }
+
+    public void close() {
+        friendsQueue.offer(fakeFriend);
+        try {
+            replicatingThread.join();
+        } catch (InterruptedException e) {
+            log.error("Failed to join replication loop thread", e);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -66,12 +67,10 @@ public class InitialReplicator {
                 final App app = App.getInstance();
                 final URI baseURI = app.getBaseURI();
                 final RemoteConnector conn = RemoteConnector.getInstance();
-                for (int i = 0; i < app.friendDegree; ++i) {
-                    String friend;
-                    do {
-                        friend = friendsQueue.take();
-                    } while (isFriendRemoved(friend));
 
+                String friend;
+                //noinspection StringEquality
+                while ((friend = friendsQueue.take()) != fakeFriend) {
                     // at first replicate friends
                     if (!URI.create(friend).equals(baseURI)) {
                         log.info("Replicating friends of [" + friend + "] started");
@@ -135,18 +134,12 @@ public class InitialReplicator {
                             });
                         }
                     }
-                    log.info("Replicating data of [" + friend + "]'s data finished");
+                    log.info("Replicating data of [" + friend + "] finished");
                 }
             } catch (Throwable t) {
                 log.error("Initial Replicator error", t);
             } finally {
                 log.info("Initial Replicator finished");
-            }
-        }
-
-        private boolean isFriendRemoved(@NotNull final String friend) {
-            synchronized (removedFriends) {
-                return removedFriends.contains(friend);
             }
         }
     }
