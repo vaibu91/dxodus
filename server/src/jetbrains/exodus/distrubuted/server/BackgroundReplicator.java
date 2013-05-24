@@ -1,5 +1,6 @@
 package jetbrains.exodus.distrubuted.server;
 
+import com.sun.jersey.api.client.ClientHandlerException;
 import jetbrains.exodus.core.dataStructures.Pair;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.impl.bindings.LongBinding;
@@ -143,6 +144,8 @@ public class BackgroundReplicator {
                         }
                     }
                     log.info("Replicating data of [" + friend + "] finished");
+                } catch (ClientHandlerException t) {
+                    log.warn("Can't reach friend [" + friend + "]: " + t.getMessage());
                 } catch (Throwable t) {
                     log.error("Background Replicator error, friend [" + friend + "]", t);
                 }

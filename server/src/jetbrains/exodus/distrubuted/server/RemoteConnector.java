@@ -162,11 +162,20 @@ public class RemoteConnector {
     private static <T> T wrapFuture(final long timeout, @NotNull final Future<T> future) throws TimeoutException {
         try {
             return future.get(timeout, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (TimeoutException t) {
             log.info(future.cancel(true) ? "Cancelled future" : "Timed out future");
             throw t;
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException)cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error)cause;
+            }
+            throw new RuntimeException(e);
         }
     }
 }
