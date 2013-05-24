@@ -163,13 +163,17 @@
                     this.put("paste", key, $("#paste").val(), function() {
                         $("#pasteScreen").hide();
                         $("#viewScreen").show();
-                        var l = window.location.toString();
-                        if (l.indexOf("#") > 0) l = l.substring(0, l.indexOf("#"));
-                        var p = l + "#" + key;
-                        $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
-                        dexodus.take("paste", key, function(data) {
-                            $("#viewPaste").val(data);
-                        });
+                        var l = dexodus.getRandomUrl();
+                        if (l != "") {
+                            var u = window.location.toString();
+                            if (u.indexOf("#") > 0) u = u.substring(0, u.indexOf("#"));
+                            l += u.substr(u.lastIndexOf("html"));
+                            var p = l + "#" + key;
+                            $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
+                            dexodus.take("paste", key, function(data) {
+                                $("#viewPaste").val(data);
+                            });
+                        }
                     });
                 },
 
