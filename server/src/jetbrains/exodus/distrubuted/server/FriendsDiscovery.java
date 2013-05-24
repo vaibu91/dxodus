@@ -1,5 +1,8 @@
 package jetbrains.exodus.distrubuted.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,6 +15,8 @@ import java.util.List;
 
 public class FriendsDiscovery {
 
+    private static final Logger log = LoggerFactory.getLogger(FriendsDiscovery.class);
+
     private static FriendsDiscovery INSTANCE = new FriendsDiscovery();
     private int[] ports = new int[]{3527, 3529, 3533, 3539, 3541};
 
@@ -22,13 +27,13 @@ public class FriendsDiscovery {
             try {
                 socket = new DatagramSocket(p, InetAddress.getByName("0.0.0.0"));
                 socket.setBroadcast(true);
-                System.out.println("Discovery started on port " + p);
+                log.info("Discovery started on port " + p);
                 listen();
 
                 return;
             } catch (Exception e) {
                 //throw new RuntimeException(e);
-                System.out.println("Can not start discovery on port " + p);
+                log.info("Can not start discovery on port " + p);
             }
         }
 
@@ -42,18 +47,18 @@ public class FriendsDiscovery {
         new Thread(new Runnable() {
             public void run() {
                 try {
-                    System.out.println("Listen on " + socket.getLocalAddress() + " from " + socket.getPort() + " port " + socket.getBroadcast());
+                    log.info("Listen on " + socket.getLocalAddress() + " from " + socket.getPort() + " port " + socket.getBroadcast());
                     byte[] buf = new byte[1024];
                     DatagramPacket packet = new DatagramPacket(buf, buf.length);
                     while (true) {
-                        System.out.println("Waiting for data");
+                        log.info("Waiting for data");
                         socket.receive(packet);
                         String data = new String(packet.getData(), 0, packet.getLength());
                         packet.getAddress();
-                        System.out.println("Data received from: " + packet.getAddress() + " [" + data + "]");
+                        log.info("Data received from: " + packet.getAddress() + " [" + data + "]");
 
                         if (URI.create(data).equals(App.getInstance().getBaseURI())) {
-                            System.out.println("Do not make friends with myself");
+                            log.info("Do not make friends with myself");
                         } else {
                             // make friends
                             App.getInstance().addFriends(data);
@@ -85,7 +90,7 @@ public class FriendsDiscovery {
             for (int p : ports) {
                 DatagramPacket packet = new DatagramPacket(data, data.length, bc, p);
                 try {
-                    System.out.println("Send broadcast to " + bc + " on port " + p);
+                    log.info("Send broadcast to " + bc + " on port " + p);
                     socket.send(packet);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -106,7 +111,7 @@ public class FriendsDiscovery {
                 if (iface == null) continue;
 
                 if (!iface.isLoopback() && iface.isUp()) {
-                    System.out.println("Found non-loopback, up interface:" + iface);
+                    log.info("Found non-loopback, up interface:" + iface);
 
                     Iterator it = iface.getInterfaceAddresses().iterator();
                     while (it.hasNext()) {
@@ -116,7 +121,7 @@ public class FriendsDiscovery {
                         InetAddress broadcast = address.getBroadcast();
                         if (broadcast != null) {
                             listOfBroadcasts.add(broadcast);
-                            System.out.println("Found address: " + address);
+                            log.info("Found address: " + address);
                         }
                     }
                 }

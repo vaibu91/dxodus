@@ -9,6 +9,8 @@ import com.sun.jersey.api.json.JSONConfiguration;
 import com.sun.jersey.core.util.MultivaluedMapImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
@@ -21,6 +23,8 @@ import java.util.concurrent.TimeoutException;
 
 public class RemoteConnector {
 
+    private static final Logger log = LoggerFactory.getLogger(RemoteConnector.class);
+    
     private static final RemoteConnector INSTANCE = new RemoteConnector();
     public static final GenericType<String> STRING_TYPE = new GenericType<>(String.class);
     private static final TypeListener<String> STRING_L = new TypeListener<String>(STRING_TYPE) {
@@ -112,7 +116,7 @@ public class RemoteConnector {
     }
 
     public Future<String[]> friendsAsync(@NotNull final String url, @Nullable String myUri, @NotNull final ITypeListener<String[]> l) {
-        System.out.println("Ask for friends from " + url);
+        log.info("Ask for friends from " + url);
         AsyncWebResource r = c.asyncResource(url + "friends");
         if (myUri != null) {
             r = r.queryParam("friendUri", myUri);
@@ -142,11 +146,11 @@ public class RemoteConnector {
         final String val = Long.toBinaryString(System.currentTimeMillis());
         final String url = "http://localhost:8086/";
         final RemoteConnector conn = RemoteConnector.getInstance();
-        System.out.println(conn.put(url, "ns1", "key2", val, 1000).getStatus());
-        System.out.println(conn.get(url, "ns1", "key2", 1000));
-        System.out.println(Arrays.toString(conn.friends(url, null, 1000)));
-        System.out.println(conn.data(url, 0, 1000));
-        System.out.println(Arrays.toString(conn.friends(url, null, 1000)));
+        log.info("" + conn.put(url, "ns1", "key2", val, 1000).getStatus());
+        log.info(conn.get(url, "ns1", "key2", 1000));
+        log.info(Arrays.toString(conn.friends(url, null, 1000)));
+        log.info("" + conn.data(url, 0, 1000));
+        log.info(Arrays.toString(conn.friends(url, null, 1000)));
     }
 
     private static <T> T wrapFuture(final long timeout, @NotNull final Future<T> future) throws TimeoutException {
@@ -155,7 +159,7 @@ public class RemoteConnector {
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         } catch (TimeoutException t) {
-            System.out.println(future.cancel(true) ? "Cancelled future" : "Timed out future");
+            log.info(future.cancel(true) ? "Cancelled future" : "Timed out future");
             throw t;
         }
     }

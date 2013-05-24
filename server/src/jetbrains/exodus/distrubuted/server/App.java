@@ -13,6 +13,8 @@ import jetbrains.exodus.database.impl.bindings.StringBinding;
 import jetbrains.exodus.database.persistence.*;
 import jetbrains.exodus.env.Environments;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +24,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class App {
+
+    private static Logger log = LoggerFactory.getLogger(App.class);
 
     private static App INSTANCE;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -168,7 +172,7 @@ public class App {
             for (final String friend : friends) {
                 // do not make friends with yourself
                 if (!URI.create(friend).equals(getBaseURI())) {
-                    System.out.println("Add friend [" + friend + "]");
+                    log.info("Add friend [" + friend + "]");
                     mutableSet.add(friend);
                 }
             }
@@ -186,7 +190,7 @@ public class App {
             final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
             for (final String friend : friends) {
                 mutableSet.remove(friend);
-                System.out.println("Remove friend " + friend);
+                log.info("Remove friend " + friend);
             }
             mutableSet.endWrite();
             if (this.friends.compareAndSet(oldSet, newSet)) {
@@ -217,7 +221,7 @@ public class App {
             storePair.getSecond().close();
         }
         environment.close();
-        System.out.println("Server stopped");
+        log.info("Server stopped");
     }
 
     public static App getInstance() {
@@ -246,7 +250,7 @@ public class App {
             FriendsDiscovery.getInstance().discoverFriends();
 
         } catch (IOException ex) {
-            System.out.println("I/O Error");
+            log.info("I/O Error");
             ex.printStackTrace();
         }
 

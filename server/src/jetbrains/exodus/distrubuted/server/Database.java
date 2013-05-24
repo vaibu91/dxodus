@@ -14,6 +14,8 @@ import jetbrains.exodus.database.persistence.Store;
 import jetbrains.exodus.database.persistence.Transaction;
 import jetbrains.exodus.database.persistence.TransactionalComputable;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
@@ -29,12 +31,14 @@ import java.util.concurrent.TimeoutException;
 @Produces(MediaType.APPLICATION_JSON)
 public class Database {
 
+    private static Logger log = LoggerFactory.getLogger(Database.class);
+
     @GET
     @Path("/{ns}/{key}")
     @Produces(MediaType.TEXT_PLAIN)
     public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key,
                         @QueryParam("timeStamp") final Long timeStamp) {
-        System.out.println("GET: " + key);
+        log.info("GET: " + key);
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final ByteIterable valueBytes = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ByteIterable>() {
             @Override
@@ -58,7 +62,7 @@ public class Database {
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
         final App app = App.getInstance();
-        System.out.println("POST to " + app.getBaseURI().toString());
+        log.info("POST to " + app.getBaseURI().toString());
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final Long nextTimeStamp = app.computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
@@ -106,12 +110,12 @@ public class Database {
             }
         });
         if (nextTimeStamp == null) {
-            System.out.println("Ignore put - timestamp is smaller.");
+            log.info("Ignore put - timestamp is smaller.");
             return Response.status(Response.Status.NOT_ACCEPTABLE).build();
         }
 
         // replicate to friends
-        replicateDoPost(ns, key, value, timeStamp);
+        replicateDoPost(ns, key, value, nextTimeStamp);
 
         return Response.ok().build();
     }
@@ -174,14 +178,14 @@ public class Database {
             for (f = random.nextInt(friends.length); replicated.contains(f); ) {
                 f = random.nextInt(friends.length);
             }
-            System.out.println("Replicate put to [" + friends[f] + "]");
+            log.info("Replicate put to [" + friends[f] + "]");
             try {
                 RemoteConnector.getInstance().put(friends[f], ns, key, value, 1000, timeStamp);
                 replicated.add(f);
-                System.out.println("Replicated: " + replicated.size() + ". Friends: " + friends.length);
+                log.info("Replicated: " + replicated.size() + ". Friends: " + friends.length);
             } catch (Exception e) {
 //                e.printStackTrace();
-                System.out.println("Exception for [" + friends[f] + "] " + e.getMessage());
+                log.info("Exception for [" + friends[f] + "] " + e.getClass().getName() + ":" + e.getMessage());
                 // remove bad friend
                 app.removeFriends(friends[f]);
                 friends = app.getFriends();
