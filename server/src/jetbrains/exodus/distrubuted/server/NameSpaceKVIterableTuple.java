@@ -2,16 +2,14 @@ package jetbrains.exodus.distrubuted.server;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-
-public class NameSpaceKVListTuple {
+public class NameSpaceKVIterableTuple {
 
     @NotNull
     private final String namespace;
     @NotNull
-    private final List<KeyValueTuple> data;
+    private final Iterable<KeyValueTuple> data;
 
-    public NameSpaceKVListTuple(@NotNull final String namespace, @NotNull final List<KeyValueTuple> data) {
+    public NameSpaceKVIterableTuple(@NotNull final String namespace, @NotNull final Iterable<KeyValueTuple> data) {
         this.namespace = namespace;
         this.data = data;
     }
@@ -22,7 +20,7 @@ public class NameSpaceKVListTuple {
     }
 
     @NotNull
-    public List<KeyValueTuple> getData() {
+    public Iterable<KeyValueTuple> getData() {
         return data;
     }
 }
