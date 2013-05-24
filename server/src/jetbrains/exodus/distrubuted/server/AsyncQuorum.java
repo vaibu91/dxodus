@@ -66,10 +66,11 @@ public class AsyncQuorum {
             }
 
             @Override
-            public void setFutures(@NotNull final Future... f) {
+            public Context<R, T> setFutures(@NotNull final Future... f) {
                 if (!futures.compareAndSet(null, f)) {
                     throw new IllegalStateException("Futures already set");
                 }
+                return this;
             }
 
             @Override
@@ -115,15 +116,15 @@ public class AsyncQuorum {
         };
     }
 
-    private static interface Context<R, T> extends Future<R> {
+    public static interface Context<R, T> extends Future<R> {
 
-        void setFutures(@NotNull final Future... futures);
+        Context<R, T> setFutures(@NotNull final Future... futures);
 
         ITypeListener<T> getListener();
 
     }
 
-    private static interface ResultFilter<R, T> {
+    public static interface ResultFilter<R, T> {
         @NotNull
         R fold(@Nullable R prev, @NotNull T current);
     }
