@@ -42,6 +42,7 @@ public class App {
     private final Map<String, Pair<Store, Store>> namespaces = new TreeMap<>();
     private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
+    private final AtomicReference<PersistentHashSet<FriendsListener>> friendListeners = new AtomicReference<>();
     final int friendDegree = Integer.getInteger("dexodus.friendDegree", 2);
 
     public App(URI baseURI, HttpServer server, final Environment environment) {
@@ -167,15 +168,19 @@ public class App {
     }
 
     public void addFriends(@NotNull final String... friends) {
+        final List<String> added = new ArrayList<>();
         for (; ; ) {
+            added.clear();
             final PersistentHashSet<String> oldSet = this.friends.get();
             final PersistentHashSet<String> newSet = oldSet == null ? new PersistentHashSet<String>() : oldSet.getClone();
             final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
             for (final String friend : friends) {
                 // do not make friends with yourself
                 if (!URI.create(friend).equals(getBaseURI())) {
-                    log.info("Add friend [" + friend + "]");
-                    mutableSet.add(friend);
+                    if (!mutableSet.contains(friend)) {
+                        mutableSet.add(friend);
+                        added.add(friend);
+                    }
                 }
             }
             mutableSet.endWrite();
@@ -183,19 +188,72 @@ public class App {
                 break;
             }
         }
+        final PersistentHashSet<FriendsListener> listeners = friendListeners.get();
+        for (final String friend : added) {
+            log.info("Add friend [" + friend + "]");
+            if (listeners != null) {
+                for (final FriendsListener listener : listeners.getCurrent()) {
+                    listener.friendAdded(friend);
+                }
+            }
+        }
     }
 
     public void removeFriends(@NotNull final String... friends) {
+        final List<String> removed = new ArrayList<>();
         for (; ; ) {
+            removed.clear();
             final PersistentHashSet<String> oldSet = this.friends.get();
-            final PersistentHashSet<String> newSet = oldSet == null ? new PersistentHashSet<String>() : oldSet.getClone();
+            if (oldSet == null) {
+                break;
+            }
+            final PersistentHashSet<String> newSet = oldSet.getClone();
             final PersistentHashSet.MutablePersistentHashSet<String> mutableSet = newSet.beginWrite();
             for (final String friend : friends) {
-                mutableSet.remove(friend);
-                log.info("Remove friend " + friend);
+                if (mutableSet.remove(friend)) {
+                    removed.add(friend);
+                }
             }
             mutableSet.endWrite();
             if (this.friends.compareAndSet(oldSet, newSet)) {
+                break;
+            }
+        }
+        final PersistentHashSet<FriendsListener> listeners = friendListeners.get();
+        for (final String friend : removed) {
+            log.info("Remove friend [" + friend + "]");
+            if (listeners != null) {
+                for (final FriendsListener listener : listeners.getCurrent()) {
+                    listener.friendAdded(friend);
+                }
+            }
+        }
+    }
+
+    public void addFriendsListener(@NotNull final FriendsListener listener) {
+        for (; ; ) {
+            final PersistentHashSet<FriendsListener> oldSet = friendListeners.get();
+            final PersistentHashSet<FriendsListener> newSet = oldSet == null ? new PersistentHashSet<FriendsListener>() : oldSet.getClone();
+            final PersistentHashSet.MutablePersistentHashSet<FriendsListener> mutableSet = newSet.beginWrite();
+            mutableSet.add(listener);
+            mutableSet.endWrite();
+            if (friendListeners.compareAndSet(oldSet, newSet)) {
+                break;
+            }
+        }
+    }
+
+    public void removeFriendsListener(@NotNull final FriendsListener listener) {
+        for (; ; ) {
+            final PersistentHashSet<FriendsListener> oldSet = friendListeners.get();
+            if (oldSet == null) {
+                break;
+            }
+            final PersistentHashSet<FriendsListener> newSet = oldSet.getClone();
+            final PersistentHashSet.MutablePersistentHashSet<FriendsListener> mutableSet = newSet.beginWrite();
+            mutableSet.remove(listener);
+            mutableSet.endWrite();
+            if (friendListeners.compareAndSet(oldSet, newSet)) {
                 break;
             }
         }
@@ -296,5 +354,12 @@ public class App {
             return EMPTY_STRING_ARRAY;
         }
         return friends.split(",");
+    }
+
+    public static interface FriendsListener {
+
+        void friendAdded(@NotNull final String url);
+
+        void friendRemoved(@NotNull final String url);
     }
 }
