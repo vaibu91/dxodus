@@ -70,7 +70,7 @@ public class Database {
                     oldTimeStamp = 0;
                 } else {
                     oldTimeStamp = IterableUtils.readLong(oldValueBytes.iterator());
-                    if (oldTimeStamp > nextTimeStamp) {
+                    if (oldTimeStamp >= nextTimeStamp) {
                         return null;
                     }
                 }
