@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.List;
@@ -63,12 +64,27 @@ public class InitialReplicator {
             log.info("Initial Replicator started");
             try {
                 final App app = App.getInstance();
+                final URI baseURI = app.getBaseURI();
+                final RemoteConnector conn = RemoteConnector.getInstance();
                 for (int i = 0; i < app.friendDegree; ++i) {
                     String friend;
                     do {
                         friend = friendsQueue.take();
                     } while (isFriendRemoved(friend));
-                    log.info("Replication of [" + friend + "] started");
+
+                    // at first replicate friends
+                    if (!URI.create(friend).equals(baseURI)) {
+                        log.info("Replicating friends of [" + friend + "] started");
+                        try {
+                            app.addFriends(conn.friends(friend, baseURI.toString(), 10000));
+                        } catch (TimeoutException e) {
+                            log.warn("Replicating friends of [" + friend + "] timed out");
+                        }
+                        log.info("Replicating friends of [" + friend + "] finished");
+                    }
+
+                    // then replicate data
+                    log.info("Replicating data of [" + friend + "] started");
                     log.info("Computing timestamp bound");
                     final long lastTimeStamp = app.getEnvironment().computeInTransaction(new TransactionalComputable<Long>() {
                         @Override
@@ -91,17 +107,16 @@ public class InitialReplicator {
                         }
                     });
                     if (lastTimeStamp == Long.MAX_VALUE) {
-                        log.info("Nothing to replicate");
+                        log.info("No data to replicate from [" + friend + "]");
                     } else {
                         log.info("Getting data from [" + friend + "] more recent than " + DateFormat.getDateInstance(DateFormat.LONG).format(new Date(lastTimeStamp)));
                         final List<NameSpaceKVIterableTuple>[] data = new List[]{null};
-                        final RemoteConnector conn = RemoteConnector.getInstance();
                         try {
                             data[0] = conn.data(friend, lastTimeStamp, 10000);
                         } catch (TimeoutException e) {
-                            log.warn("Replication of [" + friend + "] timed out");
+                            log.warn("Replicating data of [" + friend + "] timed out");
                         } catch (Throwable t) {
-                            log.error("Replication of [" + friend + "] failed", t);
+                            log.error("Replicating data of [" + friend + "] failed", t);
                         }
                         if (data[0] != null) {
                             log.info("Saving data of [" + friend + "]");
@@ -120,7 +135,7 @@ public class InitialReplicator {
                             });
                         }
                     }
-                    log.info("Replication of [" + friend + "] finished");
+                    log.info("Replicating data of [" + friend + "]'s data finished");
                 }
             } catch (Throwable t) {
                 log.error("Initial Replicator error", t);
