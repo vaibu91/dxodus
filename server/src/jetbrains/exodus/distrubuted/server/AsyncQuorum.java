@@ -103,14 +103,8 @@ public class AsyncQuorum {
 
             @Override
             public R get(final long timeout, @NotNull final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-                if (sema.tryAcquire(quorum, timeout, unit)) {
-                    return extractResult();
-                }
-                final Status<R> status = result.get();
-                if (status.success < quorum) {
-                    throw new TimeoutException("quorum not reached");
-                }
-                return status.result;
+                sema.tryAcquire(quorum, timeout, unit);
+                return extractResult();
             }
 
             @Override
@@ -121,7 +115,7 @@ public class AsyncQuorum {
             private R extractResult() {
                 final Status<R> status = result.get();
                 if (status.success < quorum) {
-                    throw new IllegalStateException("quorum not reached");
+                    throw new QuorumException("quorum not reached");
                 }
                 return status.result;
             }
@@ -137,8 +131,8 @@ public class AsyncQuorum {
     }
 
     public static interface ResultFilter<R, T> {
-        @NotNull
-        R fold(@Nullable R prev, @NotNull T current);
+        @Nullable
+        R fold(@Nullable R prev, @Nullable T current);
     }
 
     public static interface ErrorHandler<T> {
@@ -164,9 +158,9 @@ public class AsyncQuorum {
         final String url = "http://localhost:8086/";
         final RemoteConnector conn = RemoteConnector.getInstance();
         final ResultFilter<String, String> myFilter = new ResultFilter<String, String>() {
-            @NotNull
+            @Nullable
             @Override
-            public String fold(@Nullable String prev, @NotNull String current) {
+            public String fold(@Nullable String prev, @Nullable String current) {
                 if (prev == null) {
                     return current;
                 }
@@ -178,29 +172,29 @@ public class AsyncQuorum {
         };
         Context<String, String> ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get());
         ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get());
         ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns", "key2", ctx.getListener(), null) // will result in error (404)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns", "key2", ctx.getListener()) // will result in error (404)
         );
         System.out.println("done " + ctx.get());
         ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns", "key2", ctx.getListener(), null), // will result in error (404)
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
+                conn.getAsync(url, "ns", "key2", ctx.getListener()), // will result in error (404)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get());
 
@@ -208,14 +202,14 @@ public class AsyncQuorum {
 
         ctx = AsyncQuorum.createContext(2, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get(1000, TimeUnit.MILLISECONDS));
         ctx = AsyncQuorum.createContext(3, myFilter, RemoteConnector.STRING_TYPE);
         ctx.setFutures(
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null),
-                conn.getAsync(url, "ns1", "key2", ctx.getListener(), null)
+                conn.getAsync(url, "ns1", "key2", ctx.getListener()),
+                conn.getAsync(url, "ns1", "key2", ctx.getListener())
         );
         System.out.println("done " + ctx.get(1000, TimeUnit.MILLISECONDS));
         RemoteConnector.getInstance().destroy();

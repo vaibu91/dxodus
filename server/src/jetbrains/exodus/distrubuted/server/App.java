@@ -283,6 +283,18 @@ public class App {
         return result;
     }
 
+    public void shuffle(String[] data) {
+        if (data.length < 2) {
+            return;
+        }
+        for (int i = data.length - 1; i >= 0; i--) {
+            final int index = random.nextInt(i + 1);
+            final String a = data[index];
+            data[index] = data[i];
+            data[i] = a;
+        }
+    }
+
     public void close() {
         server.stop(0);
         for (final Pair<Store, Store> storePair : namespaces.values()) {

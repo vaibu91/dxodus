@@ -26,6 +26,8 @@ public class RemoteConnector {
     private static final Logger log = LoggerFactory.getLogger(RemoteConnector.class);
     
     private static final RemoteConnector INSTANCE = new RemoteConnector();
+
+    public static final GenericType<Object> OBJ_TYPE = new GenericType<>(Object.class);
     public static final GenericType<String> STRING_TYPE = new GenericType<>(String.class);
     private static final TypeListener<String> STRING_L = new TypeListener<String>(STRING_TYPE) {
         @Override
@@ -42,6 +44,12 @@ public class RemoteConnector {
     private static final TypeListener<ClientResponse> RESP_L = new TypeListener<ClientResponse>(RESP_TYPE) {
         @Override
         public void onComplete(Future<ClientResponse> f) throws InterruptedException {
+        }
+    };
+    public static final GenericType<ValueTimeStampTuple> REPL_TYPE = new GenericType<>(ValueTimeStampTuple.class);
+    private static final TypeListener<ValueTimeStampTuple> REPL_L = new TypeListener<ValueTimeStampTuple>(REPL_TYPE) {
+        @Override
+        public void onComplete(Future<ValueTimeStampTuple> f) throws InterruptedException {
         }
     };
     private static final GenericType<List<NameSpaceKVIterableTuple>> DATA_TYPE = new GenericType<List<NameSpaceKVIterableTuple>>() {
@@ -61,26 +69,23 @@ public class RemoteConnector {
         c = Client.create(clientConfig);
     }
 
-    public String get(@NotNull final String url, @NotNull final String ns, @NotNull final String key, long timeout) throws TimeoutException {
-        return get(url, ns, key, timeout, null);
-    }
-
     public String get(@NotNull final String url, @NotNull final String ns,
-                      @NotNull final String key, long timeout, @Nullable final Long timeStamp) throws TimeoutException {
-        return wrapFuture(timeout, getAsync(url, ns, key, STRING_L, timeStamp));
+                      @NotNull final String key, long timeout) throws TimeoutException {
+        return wrapFuture(timeout, getAsync(url, ns, key, STRING_L));
     }
 
     public Future<String> getAsync(@NotNull final String url, @NotNull final String ns, @NotNull final String key) {
-        return getAsync(url, ns, key, STRING_L, null);
+        return getAsync(url, ns, key, STRING_L);
     }
 
     public Future<String> getAsync(@NotNull final String url, @NotNull final String ns,
-                                   @NotNull final String key, @NotNull final ITypeListener<String> l, @Nullable final Long timeStamp) {
-        AsyncWebResource r = c.asyncResource(url + ns + '/' + key);
-        if (timeStamp != null) {
-            r = r.queryParam("timeStamp", timeStamp.toString());
-        }
-        return r.get(l);
+                                   @NotNull final String key, @NotNull final ITypeListener<String> l) {
+        return c.asyncResource(url + ns + '/' + key).get(l);
+    }
+
+    public Future<ValueTimeStampTuple> getAsyncRepl(@NotNull final String url, @NotNull final String ns,
+                                   @NotNull final String key, long timeStamp, @NotNull final ITypeListener<ValueTimeStampTuple> l) {
+        return c.asyncResource(url + ns + '/' + key + '/' + timeStamp).get(l);
     }
 
     public ClientResponse put(@NotNull final String url, @NotNull final String ns,

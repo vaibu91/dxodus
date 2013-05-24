@@ -60,7 +60,7 @@ public class FriendsDiscovery {
                             App.getInstance().addFriends(data);
                             // make friends from remote
                             final AsyncQuorum.Context<String[], String[]> ctx = AsyncQuorum.createContext(0, new AsyncQuorum.ResultFilter<String[], String[]>() {
-                                @NotNull
+                                @Nullable
                                 @Override
                                 public String[] fold(@Nullable String[] prev, @NotNull String[] current) {
                                     App.getInstance().addFriends(current);

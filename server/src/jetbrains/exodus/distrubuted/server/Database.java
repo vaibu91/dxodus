@@ -45,9 +45,106 @@ public class Database {
     @GET
     @Path("/{ns}/{key}")
     @Produces(MediaType.TEXT_PLAIN)
-    public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key,
-                        @QueryParam("timeStamp") final Long timeStamp) {
+    public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key) {
         log.info("GET: " + key);
+        final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
+        final App app = App.getInstance();
+        final String[] friends = app.getFriends();
+        app.shuffle(friends);
+        if (friends.length == 0) {
+            return App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<String>() {
+                @Override
+                public String compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
+                    final ByteIterable valueBytes = namespace.get(txn, keyBytes);
+                    if (valueBytes == null) {
+                        log.info("No friends and no data by key: " + key);
+                        throw new WebApplicationException(Response.Status.NOT_FOUND);
+                    }
+                    final ByteIterator itr = valueBytes.iterator();
+                    itr.skip(8); // ignore timestamp
+                    return IterableUtils.readString(itr);
+                }
+            });
+        }
+        final Map<Future, String> futureToFriends = new HashMap<>();
+        final ValueTimeStampTuple seed = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ValueTimeStampTuple>() {
+            @Override
+            public ValueTimeStampTuple compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
+                final ByteIterable valueBytes = namespace.get(txn, keyBytes);
+                if (valueBytes == null) {
+                    return null;
+                }
+                final ByteIterator itr = valueBytes.iterator();
+                final long t = IterableUtils.readLong(itr);
+                return new ValueTimeStampTuple(t, IterableUtils.readString(itr));
+            }
+        });
+        final long localTimeStamp = seed == null ? 0 : seed.getTimeStamp();
+        AsyncQuorum.Context<ValueTimeStampTuple, ValueTimeStampTuple> ctx =
+                AsyncQuorum.createContext(Math.min(app.friendDegree, friends.length),
+                        new AsyncQuorum.ResultFilter<ValueTimeStampTuple, ValueTimeStampTuple>() {
+                            @Nullable
+                            @Override
+                            public ValueTimeStampTuple fold(@Nullable ValueTimeStampTuple prev, @Nullable ValueTimeStampTuple current) {
+                                if (current != null) {
+                                    if (prev == null) {
+                                        if (seed == null) {
+                                            return current;
+                                        }
+                                        prev = seed;
+                                    }
+                                    if (current.getTimeStamp() > prev.getTimeStamp()) {
+                                        return current;
+                                    }
+                                } else {
+                                    log.error("Ignoring result " + current);
+                                }
+                                return prev;
+                            }
+                        }, new AsyncQuorum.ErrorHandler<ValueTimeStampTuple>() {
+                            @Override
+                            public void handleFailed(Future<ValueTimeStampTuple> failed, ExecutionException t) {
+                                final String friend = futureToFriends.get(failed);
+                                if (t == null) { // null means "cancelled"
+                                    log.info("Get REPL cancelled for [" + friend + "]");
+                                } else {
+                                    log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                                }
+                            }
+                        },
+                        RemoteConnector.REPL_TYPE
+                );
+        final Future[] futures = new Future[friends.length];
+        int i = 0;
+        for (final String friend : friends) {
+            log.info("Replicate get to: " + friend);
+            final Future<ValueTimeStampTuple> future = RemoteConnector.getInstance().getAsyncRepl(friend, ns, key, localTimeStamp, ctx.getListener());
+            futures[i++] = future;
+            futureToFriends.put(future, friend);
+        }
+        ctx.setFutures(futures);
+        try {
+            final ValueTimeStampTuple result = ctx.get(1000, TimeUnit.MILLISECONDS);
+            ctx.cancel(true); // cancel other jobs
+            log.info("Get replicated successfully");
+            if (result == null) {
+                log.info("No data by key at all: " + key);
+                throw new WebApplicationException(Response.Status.NOT_FOUND);
+            }
+            return result.getValue();
+        } catch (QuorumException q) {
+            log.info("No quorum reached: " + key);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @GET
+    @Path("/{ns}/{key}/{timeStamp}")
+    public ValueTimeStampTuple doGetRepl(@PathParam("ns") final String ns, @PathParam("key") final String key,
+                                         @PathParam("timeStamp") final Long timeStamp) {
+        log.info("GET for replication: " + key);
         final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
         final ByteIterable valueBytes = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<ByteIterable>() {
             @Override
@@ -56,11 +153,16 @@ public class Database {
             }
         });
         if (valueBytes == null) {
+            log.info("No timestamp for key " + key + ", requested " + timeStamp);
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
         final ByteIterator itr = valueBytes.iterator();
-        itr.skip(8); // ignore timestamp
-        return IterableUtils.readString(itr);
+        final long localTimeStamp = IterableUtils.readLong(itr);
+        if (localTimeStamp < timeStamp) {
+            log.info("Requested timestamp for key " + key + ": " + timeStamp + ", found: " + localTimeStamp);
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        return new ValueTimeStampTuple(localTimeStamp, IterableUtils.readString(itr));
     }
 
     @POST
@@ -140,27 +242,17 @@ public class Database {
     private void replicateDoPost(String ns, String key, String value, Long timeStamp) {
         final App app = App.getInstance();
         final String[] friends = app.getFriends();
-        final int friendsCount = friends.length;
-        if (friendsCount == 0) {
+        app.shuffle(friends);
+        if (friends.length == 0) {
             return;
-        }
-        if (friendsCount > 1) {
-            // shuffle
-            final Random random = app.getRandom();
-            for (int i = friendsCount - 1; i >= 0; i--) {
-                final int index = random.nextInt(i + 1);
-                final String a = friends[index];
-                friends[index] = friends[i];
-                friends[i] = a;
-            }
         }
         final Map<Future, String> futureToFriends = new HashMap<>();
         AsyncQuorum.Context<ClientResponse, ClientResponse> ctx =
-                AsyncQuorum.createContext(Math.min(app.friendDegree, friendsCount),
+                AsyncQuorum.createContext(Math.min(app.friendDegree, friends.length),
                         new AsyncQuorum.ResultFilter<ClientResponse, ClientResponse>() {
-                            @NotNull
+                            @Nullable
                             @Override
-                            public ClientResponse fold(@Nullable ClientResponse prev, @NotNull ClientResponse current) {
+                            public ClientResponse fold(@Nullable ClientResponse prev, @Nullable ClientResponse current) {
                                 return current;
                             }
                         }, new AsyncQuorum.ErrorHandler<ClientResponse>() {
@@ -179,7 +271,7 @@ public class Database {
                         },
                         RemoteConnector.RESP_TYPE
                 );
-        final Future[] futures = new Future[friendsCount];
+        final Future[] futures = new Future[friends.length];
         int i = 0;
         for (final String friend : app.getFriends()) {
             log.info("Schedule replication to: " + friend);
