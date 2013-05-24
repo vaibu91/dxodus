@@ -127,7 +127,7 @@ public class FriendsDiscovery {
                 }
             }
         } catch (SocketException ex) {
-            return new ArrayList<InetAddress>();
+            return new ArrayList<>();
         }
 
         return listOfBroadcasts;
