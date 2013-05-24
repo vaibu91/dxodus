@@ -51,6 +51,10 @@ public class AsyncQuorum {
                                 return;
                             }
                         }
+                    } catch (CancellationException c) {
+                        if (handler != null) {
+                            handler.handleFailed(f, null);
+                        }
                     }
                 }
             };

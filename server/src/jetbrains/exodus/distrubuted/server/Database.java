@@ -2,7 +2,6 @@ package jetbrains.exodus.distrubuted.server;
 
 import com.sun.jersey.api.client.ClientResponse;
 import jetbrains.exodus.core.dataStructures.Pair;
-import jetbrains.exodus.core.dataStructures.hash.IntHashSet;
 import jetbrains.exodus.database.ByteIterable;
 import jetbrains.exodus.database.ByteIterator;
 import jetbrains.exodus.database.impl.bindings.LongBinding;
@@ -200,17 +199,27 @@ public class Database {
                             @Override
                             public void handleFailed(Future<ClientResponse> failed, ExecutionException t) {
                                 final String friend = futureToFriends.get(failed);
-                                log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
-                                if (friend != null) {
-                                    app.removeFriends(friend);
+                                if (t == null) { // null means "cancelled"
+                                    log.info("Replication cancelled for [" + friend + "]");
+                                } else {
+                                    log.warn("Exception for [" + friend + "] " + t.getClass().getName() + ":" + t.getMessage());
+                                    if (friend != null) {
+                                        app.removeFriends(friend);
+                                    }
                                 }
                             }
                         },
                         RemoteConnector.RESP_TYPE
                 );
+        final Future[] futures = new Future[friendsCount];
+        int i = 0;
         for (final String friend : app.getFriends()) {
-            futureToFriends.put(RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp), friend);
+            log.info("Schedule replication to: " + friend);
+            final Future<ClientResponse> future = RemoteConnector.getInstance().putAsync(friend, ns, key, value, ctx.getListener(), timeStamp);
+            futures[i++] = future;
+            futureToFriends.put(future, friend);
         }
+        ctx.setFutures(futures);
         try {
             ctx.get(1000, TimeUnit.MILLISECONDS);
             ctx.cancel(true); // cancel other jobs
