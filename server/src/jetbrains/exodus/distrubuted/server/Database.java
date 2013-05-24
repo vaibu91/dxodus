@@ -63,54 +63,15 @@ public class Database {
     public Response doPost(@PathParam("ns") final String ns, @PathParam("key") final String key,
                            @FormParam("value") final String value, @QueryParam("timeStamp") final Long timeStamp,
                            @Context UriInfo uriInfo) {
-        final App app = App.getInstance();
-        log.info("POST to " + app.getBaseURI().toString());
-        final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
-        final Long nextTimeStamp = app.computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
+        log.info("POST to " + App.getInstance().getBaseURI().toString());
+
+        final Long nextTimeStamp = App.getInstance().computeInTransaction(ns, new NamespaceTransactionalComputable<Long>() {
             @Override
-            public Long compute(@NotNull Transaction txn, @NotNull Store namespace, @NotNull Store idx, @NotNull App app) {
-                final long nextTimeStamp = timeStamp == null ? System.currentTimeMillis() : timeStamp;
-                final long oldTimeStamp;
-                final ByteIterable oldValueBytes = namespace.get(txn, keyBytes);
-                if (oldValueBytes == null) {
-                    oldTimeStamp = 0;
-                } else {
-                    oldTimeStamp = IterableUtils.readLong(oldValueBytes.iterator());
-                    if (oldTimeStamp >= nextTimeStamp) {
-                        return null;
-                    }
-                }
-                final LightOutputStream out = new LightOutputStream(10 + value.length()); // 8 per long and 2 additional for str
-                out.writeLong(nextTimeStamp);
-                out.writeString(value);
-                namespace.put(txn, keyBytes, out.asArrayByteIterable());
-                if (oldTimeStamp != 0) {
-                    final Cursor cursor = idx.openCursor(txn);
-                    try {
-                        if (cursor.getSearchBoth(LongBinding.longToCompressedEntry(oldTimeStamp), keyBytes)) {
-                            cursor.deleteCurrent();
-                        }
-                    } finally {
-                        cursor.close();
-                    }
-                }
-                idx.put(txn, LongBinding.longToCompressedEntry(nextTimeStamp), keyBytes);
-
-                // update ns idx
-                final Store namespacesIdx = app.getNamespacesIdx();
-                final ArrayByteIterable nsKey = StringBinding.stringToEntry(ns);
-                final ByteIterable oldTimeStampEntry = namespacesIdx.get(txn, nsKey);
-                if (oldTimeStampEntry != null) {
-                    final long oldNsTimeStamp = LongBinding.compressedEntryToLong(oldTimeStampEntry);
-                    if (oldNsTimeStamp > nextTimeStamp) {
-                        return nextTimeStamp;
-                    }
-                }
-                namespacesIdx.put(txn, nsKey, LongBinding.longToCompressedEntry(nextTimeStamp));
-
-                return nextTimeStamp;
+            public Long compute(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx, @NotNull final App app) {
+                return putLocally(txn, namespace, idx, app, key, value, timeStamp);
             }
         });
+
         if (nextTimeStamp == null) {
             log.info("Ignore put - timestamp is smaller.");
             return Response.status(Response.Status.NOT_ACCEPTABLE).build();
@@ -229,5 +190,50 @@ public class Database {
         } catch (Throwable t) {
             log.error("Replication error", t);
         }
+    }
+
+    public static Long putLocally(@NotNull final Transaction txn, @NotNull final Store namespace, @NotNull final Store idx,
+                                  @NotNull final App app, @NotNull final String key, @NotNull final String value, @Nullable final Long timeStamp) {
+        final ArrayByteIterable keyBytes = StringBinding.stringToEntry(key);
+        final long nextTimeStamp = timeStamp == null ? System.currentTimeMillis() : timeStamp;
+        final long oldTimeStamp;
+        final ByteIterable oldValueBytes = namespace.get(txn, keyBytes);
+        if (oldValueBytes == null) {
+            oldTimeStamp = 0;
+        } else {
+            oldTimeStamp = IterableUtils.readLong(oldValueBytes.iterator());
+            if (oldTimeStamp >= nextTimeStamp) {
+                return null;
+            }
+        }
+        final LightOutputStream out = new LightOutputStream(10 + value.length()); // 8 per long and 2 additional for str
+        out.writeLong(nextTimeStamp);
+        out.writeString(value);
+        namespace.put(txn, keyBytes, out.asArrayByteIterable());
+        if (oldTimeStamp != 0) {
+            final Cursor cursor = idx.openCursor(txn);
+            try {
+                if (cursor.getSearchBoth(LongBinding.longToCompressedEntry(oldTimeStamp), keyBytes)) {
+                    cursor.deleteCurrent();
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        idx.put(txn, LongBinding.longToCompressedEntry(nextTimeStamp), keyBytes);
+
+        // update ns idx
+        final Store namespacesIdx = app.getNamespacesIdx();
+        final ArrayByteIterable nsKey = StringBinding.stringToEntry(namespace.getName());
+        final ByteIterable oldTimeStampEntry = namespacesIdx.get(txn, nsKey);
+        if (oldTimeStampEntry != null) {
+            final long oldNsTimeStamp = LongBinding.compressedEntryToLong(oldTimeStampEntry);
+            if (oldNsTimeStamp > nextTimeStamp) {
+                return nextTimeStamp;
+            }
+        }
+        namespacesIdx.put(txn, nsKey, LongBinding.longToCompressedEntry(nextTimeStamp));
+
+        return nextTimeStamp;
     }
 }

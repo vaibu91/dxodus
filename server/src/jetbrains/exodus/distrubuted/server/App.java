@@ -131,11 +131,16 @@ public class App {
         return environment.computeInTransaction(new TransactionalComputable<String[]>() {
             @Override
             public String[] compute(@NotNull final Transaction txn) {
-                final List<String> nsList = environment.getAllStoreNames(txn);
-                final int size = nsList.size();
-                return size > 0 ? nsList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
+                return getNamespaces(txn);
             }
         });
+    }
+
+    @NotNull
+    public String[] getNamespaces(@NotNull final Transaction txn) {
+        final List<String> nsList = environment.getAllStoreNames(txn);
+        final int size = nsList.size();
+        return size > 0 ? nsList.toArray(new String[size]) : EMPTY_STRING_ARRAY;
     }
 
     @NotNull
@@ -346,6 +351,7 @@ public class App {
                 }
             }));
 
+            new InitialReplicator();
             FriendsDiscovery.getInstance().discoverFriends();
 
         } catch (IOException ex) {
