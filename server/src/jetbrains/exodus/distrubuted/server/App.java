@@ -278,6 +278,7 @@ public class App {
             storePair.getFirst().close();
             storePair.getSecond().close();
         }
+        namespacesIdx.close();
         environment.close();
         log.info("Server stopped");
     }
