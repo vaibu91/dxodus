@@ -36,7 +36,7 @@
             window.dexodus = {
                 baseurl : null,
 
-                urls: ["http://172.20.208.215:8080/", "http://172.20.208.216:8080/", "http://typhon:8080/"],
+                urls: ["http://172.20.208.215:8080/", "http://172.20.208.216:8080/"],
 
                 getRandomUrl: function() {
                     if (this.urls.length <= 0) {
@@ -169,22 +169,27 @@
                 },
 
                 printFriends: function(){
+                    var html = "<ol>";
                     console.info("========");
                     $.each(dexodus.urls, function(index, value) {
                         console.info(value);
+                        html += "<li>" + value + "</li>";
                     });
                     console.info("========");
+
+                    html += "</ol>"
+                    $("#servers").html(html);
                 }
             }
 
             dexodus.updateFriends();
             window.setInterval(function() {
                 dexodus.updateFriends();
-            }, 30000);
+            }, 5000);
 
             window.setInterval(function() {
                 dexodus.printFriends()
-            }, 10000);
+            }, 1000);
 
             $("#paste").keydown(function(e) {
                 if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
@@ -224,24 +229,35 @@
 <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
 <![endif]-->
 
-<div id="pasteScreen" class="container" style="display: none">
-    <fieldset>
-        <legend>Paste your code</legend>
-        <textarea id="paste" rows="20" cols="80" placeholder="Paste your code here"></textarea>
-        <div>
-            <button id="submit" type="submit" class="btn btn-primary">Paste</button>
-        </div>
-    </fieldset>
-</div>
 
-<div id="viewScreen" class="container" style="display: none">
-    <fieldset>
-        <legend id="permalink"></legend>
-        <textarea id="viewPaste" rows="20" cols="80" readonly="true"></textarea>
-        <div>
-            <a id="newPaste" href="javascript:void(0);">New Paste</a>
+<div class="container-fluid">
+    <div class="row-fluid">
+        <div class="span2">
+            <h3>Live server</h3>
+            <div id="servers">
+            </div>
         </div>
-    </fieldset>
+        <div class="span10">
+            <div id="pasteScreen" style="display: none">
+                <fieldset>
+                    <legend>Paste your code</legend>
+                    <textarea id="paste" rows="20" cols="80" placeholder="Paste your code here"></textarea>
+                    <div>
+                        <button id="submit" type="submit" class="btn btn-primary">Paste</button>
+                    </div>
+                </fieldset>
+            </div>
+            <div id="viewScreen" style="display: none">
+                <fieldset>
+                    <legend id="permalink"></legend>
+                    <textarea id="viewPaste" rows="20" cols="80" readonly="true"></textarea>
+                    <div>
+                        <a id="newPaste" href="javascript:void(0);">New Paste</a>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+    </div>
 </div>
 
 </body>
