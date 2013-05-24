@@ -153,16 +153,6 @@ public class App {
     }
 
     @NotNull
-    public String[] getNamespaces(final long timestamp) {
-        return environment.computeInTransaction(new TransactionalComputable<String[]>() {
-            @Override
-            public String[] compute(@NotNull final Transaction txn) {
-                return getNamespaces(timestamp, txn);
-            }
-        });
-    }
-
-    @NotNull
     public String[] getNamespaces(final long timestamp, @NotNull final Transaction txn) {
         final List<String> result = new ArrayList<>();
         final List<String> nsList = environment.getAllStoreNames(txn);
