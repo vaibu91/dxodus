@@ -293,7 +293,23 @@ public class App {
         ec.setLogCacheShared(false);
         ec.setMemoryUsagePercentage(80);
         try {
-            final Environment environment = Environments.newInstance(new File(System.getProperty("user.home"), "distrdata"), ec);
+            // database
+            Environment environment = null;
+            String dir = null;
+            for (int i = 0; i < 10; i++) {
+                try {
+                    dir = "distrdata" + (i == 0 ? "" : String.valueOf(i));
+                    environment = Environments.newInstance(new File(System.getProperty("user.home"), dir), ec);
+                    break;
+                } catch (Exception e) {
+                    log.info("Can not start db for dir [" + dir + "] " + e.getMessage());
+                }
+            }
+            if (environment == null) {
+                return;
+            }
+
+            // http server
             String baseUrl = System.getProperty("dexodus.base.url");
             URI baseURI = null;
             HttpServer server = null;
