@@ -128,12 +128,12 @@ public class Database {
 
     @GET
     @Path("/data")
-    public List<Pair<String, List<KeyValueTuple>>> doGetData(@NotNull @QueryParam("timeStamp") final Long timeStamp) {
+    public List<NameSpaceKVListTuple> doGetData(@NotNull @QueryParam("timeStamp") final Long timeStamp) {
         final App app = App.getInstance();
-        return app.getEnvironment().computeInTransaction(new TransactionalComputable<List<Pair<String, List<KeyValueTuple>>>>() {
+        return app.getEnvironment().computeInTransaction(new TransactionalComputable<List<NameSpaceKVListTuple>>() {
             @Override
-            public List<Pair<String, List<KeyValueTuple>>> compute(@NotNull final Transaction txn) {
-                final List<Pair<String, List<KeyValueTuple>>> result = new ArrayList<>();
+            public List<NameSpaceKVListTuple> compute(@NotNull final Transaction txn) {
+                final List<NameSpaceKVListTuple> result = new ArrayList<>();
                 for (final String ns : app.getNamespaces(timeStamp, txn)) {
                     final Pair<Store, Store> stores = app.getNsStores(ns);
                     final Store namespace = stores.getFirst();
@@ -154,7 +154,7 @@ public class Database {
                     } finally {
                         cursor.close();
                     }
-                    result.add(new Pair<>(ns, nsList));
+                    result.add(new NameSpaceKVListTuple(ns, nsList));
                 }
                 return result;
             }
