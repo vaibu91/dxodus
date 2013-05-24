@@ -15,7 +15,7 @@ public class FriendsDiscovery {
 
     private static FriendsDiscovery INSTANCE = new FriendsDiscovery();
 
-    private int[] ports = new int[]{3527, 3529, 3533, 3539, 3541};
+    private int[] ports = new int[]{3527, 3529, 3533, 3539, 3541, 3542, 3543, 3544, 3545};
     private DatagramSocket socket;
 
     private FriendsDiscovery() {

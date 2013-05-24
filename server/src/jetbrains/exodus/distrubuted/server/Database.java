@@ -36,6 +36,13 @@ public class Database {
     private static Logger log = LoggerFactory.getLogger(Database.class);
 
     @GET
+    @Path("/")
+    @Produces(MediaType.TEXT_PLAIN)
+    public String ping() {
+        return "dexodus";
+    }
+
+    @GET
     @Path("/{ns}/{key}")
     @Produces(MediaType.TEXT_PLAIN)
     public String doGet(@PathParam("ns") final String ns, @PathParam("key") final String key,

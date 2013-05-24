@@ -26,37 +26,106 @@
                 /*xhrFields: {
                     withCredentials: true
                 },*/
+/*
                 error: function(jqXHR, textStatus, error) {
-                    console.info(error.stack);
                     window.alert(textStatus + ":" + error);
                 }
+*/
             });
 
             window.dexodus = {
-                baseurl: "http://localhost:8086",
+                baseurl : null,
+
+                urls: ["http://172.20.208.215:8080/", "http://172.20.208.216:8080/", "http://typhon:8080/"],
+
+                getRandomUrl: function() {
+                    if (this.urls.length <= 0) {
+                        if (window.confirm("All known servers are dow. Reload page and try again?")) {
+                            window.location.reload();
+                        } else {
+                            return "";
+                        }
+                    }
+                    return this.urls[Math.round(Math.random()*(this.urls.length-1))];
+                },
 
                 getUrl: function(ns, key) {
-                    return this.baseurl + "/" + ns + "/" + key;
+                    return this.baseurl + ns + "/" + key;
+                },
+
+                selectHost: function(call) {
+                    var it = this;
+                    var f = function() {
+                        it.baseurl = it.getRandomUrl();
+                        $.ajax({
+                            url: it.baseurl
+                        }).done(function() {
+                           console.info("Select host " + it.baseurl);
+                           call();
+                        }).error(function() {
+                           console.info("Remove host " + it.baseurl);
+                           // remove friend and try again
+                           it.urls.splice(it.urls.indexOf(it.baseurl), 1);
+                           f();
+                        });
+                    }
+
+                    f();
                 },
 
                 take: function(ns, key, done) {
-                    $.ajax(this.getUrl(ns, key)).done(function(data) {
-                        done(data);
+                    var it = this;
+                    this.selectHost(function() {
+                        $.ajax(it.getUrl(ns, key)).done(function(data) {
+                            done(data);
+                        }).error(function(jqXHR, textStatus, error) {
+                            window.alert(textStatus + ":" + error);
+                        })
                     });
                 },
 
                 put: function(ns, key, value, done) {
-                    $.ajax({
-                        url: this.getUrl(ns, key),
-                        type: "POST",
-                        data: {
-                            value: value
-                        }
-                    }).done(function(data) {
-                        done(data);
+                    var it = this;
+                    this.selectHost(function() {
+                        $.ajax({
+                            url: it.getUrl(ns, key),
+                            type: "POST",
+                            data: {
+                                value: value
+                            }
+                        }).done(function(data) {
+                            done(data);
+                        }).error(function(jqXHR, textStatus, error) {
+                            window.alert(textStatus + ":" + error);
+                        })
                     });
                 },
 
+                updateFriends: function() {
+                    $.each(this.urls, function(index, value) {
+                        dexodus.getFriends(value, function(data) {
+                            $.each(data, function(index, value) {
+                                if (dexodus.urls.indexOf(value) == -1) {
+                                    console.info("Add host " + value);
+                                    dexodus.urls.push(value);
+                                }
+                            })
+                        })
+                    })
+                },
+
+                getFriends: function(url, done) {
+                    var it = this;
+                    $.ajax({
+                        url: url + "friends",
+                        dataType: "json"
+                    }).done(function(data) {
+                        done(data);
+                    }).error(function() {
+                        console.info("Remove host " + url);
+                        it.urls.splice(it.urls.indexOf(url), 1);
+                    });
+                },
 
                 generateKey: function() {
                     return ("0000" + (Math.random() * Math.pow(36,4) << 0).toString(36)).substr(-4);
@@ -73,12 +142,25 @@
                 }
             }
 
+            dexodus.updateFriends();
+            window.setInterval(function() {
+                dexodus.updateFriends();
+            }, 30000);
+
+            window.setInterval(function() {
+                console.info("========");
+                $.each(dexodus.urls, function(index, value) {
+                    console.info(value);
+                })
+                console.info("========");
+            }, 10000);
+
             $("#paste").keydown(function(e) {
                 if (e.ctrlKey && (e.keyCode == 13 || e.keyCode == 10)) {
                     dexodus.paste();
                     return false;
                 }
-            })
+            });
 
             $("#submit").click(function(){
                 dexodus.paste();
