@@ -146,12 +146,14 @@ public class App {
         final List<String> result = new ArrayList<>();
         final List<String> nsList = environment.getAllStoreNames(txn);
         for (final String ns : nsList) {
-            final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
-            if (timeStampEntry == null) {
-                throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
-            }
-            if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
-                result.add(ns);
+            if (!ns.endsWith("ns#idx")) {
+                final ByteIterable timeStampEntry = namespacesIdx.get(txn, StringBinding.stringToEntry(ns));
+                if (timeStampEntry == null) {
+                    throw new NullPointerException("There is no known timestamp for the namespace: " + ns);
+                }
+                if (LongBinding.compressedEntryToLong(timeStampEntry) >= timestamp) {
+                    result.add(ns);
+                }
             }
         }
         final int size = result.size();
