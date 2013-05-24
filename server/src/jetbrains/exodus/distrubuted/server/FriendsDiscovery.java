@@ -80,7 +80,7 @@ public class FriendsDiscovery {
                     e.printStackTrace();
                 }
             }
-        }).start();
+        }, "disco").start();
     }
 
     public void discoverFriends() {
