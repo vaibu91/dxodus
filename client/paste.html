@@ -198,14 +198,21 @@
                 },
 
                 permalink: function(key) {
+                    var p = this.getPermaLink(key);
+                    if (p != "") {
+                        $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
+                    }
+                },
+
+                getPermaLink: function(key) {
                     var l = dexodus.getRandomUrl();
                     if (l != "") {
                         var u = window.location.toString();
                         if (u.indexOf("#") > 0) u = u.substring(0, u.indexOf("#"));
                         l += u.substr(u.lastIndexOf("html"));
-                        var p = l + "#" + key;
-                        $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
+                        return l + "#" + key;
                     }
+                    return "";
                 },
 
                 printFriends: function(){
@@ -222,11 +229,14 @@
                 },
 
                 printRecent: function() {
+                    var it = this;
                     var html = "<ol>";
                     console.info("========");
                     $.each(dexodus.recent, function(index, value) {
                         console.info(value);
-                        html += "<li>" + value + "</li>";
+                        var p = it.getPermaLink(value);
+                        var content = p == "" ? value : "<a href='" + p + "'>" + value + "</a>";
+                        html +=  "<li>" + content + "</li>";
                     });
                     console.info("========");
 
