@@ -40,15 +40,17 @@ public class App {
     private final Store namespacesIdx;
     private final AtomicReference<PersistentHashSet<String>> friends = new AtomicReference<>();
     private final AtomicReference<PersistentHashSet<FriendsListener>> friendListeners = new AtomicReference<>();
+    private final AsyncRunnableExecutor executor;
 
     final int friendDegree = Integer.getInteger("dexodus.friendDegree", 2);
     final int replicationReadDegree = Integer.getInteger("dexodus.replicationReadDegree", 4);
     final int replicationWriteDegree = Integer.getInteger("dexodus.replicationWriteDegree", 4);
     final int replicationWriteRetryDegree = Integer.getInteger("dexodus.replicationWriteRetryDegree", 3);
 
-    public App(URI baseURI, HttpServer server, final Environment environment) {
+    public App(URI baseURI, HttpServer server, AsyncRunnableExecutor executor, final Environment environment) {
         this.baseURI = baseURI;
         this.server = server;
+        this.executor = executor;
         this.environment = environment;
         namespacesIdx = environment.computeInTransaction(new TransactionalComputable<Store>() {
             @Override
@@ -64,6 +66,12 @@ public class App {
 
     public HttpServer getServer() {
         return server;
+    }
+
+    public void executeAsync(Runnable r) {
+        if (executor != null) {
+            executor.execute(r);
+        }
     }
 
     public Environment getEnvironment() {
@@ -352,8 +360,17 @@ public class App {
                 server = HttpServerFactory.create(baseURI, getResourceConfig());
             }
 
-            App.INSTANCE = new App(baseURI, server, environment);
-            final BackgroundReplicator backgroundReplicator = new BackgroundReplicator();
+            final boolean disableAsyncExecutor = "false".equals(System.getProperty("dexodus.async.enabled"));
+            final AsyncRunnableExecutor asyncRunnableExecutor = disableAsyncExecutor ? null : new AsyncRunnableExecutor();
+            if (disableAsyncExecutor) {
+                log.info("Async executor disabled");
+            }
+            App.INSTANCE = new App(baseURI, server, asyncRunnableExecutor, environment);
+            final boolean disableBackgroundReplicator = "false".equals(System.getProperty("dexodus.backroundrepl.enabled"));
+            final BackgroundReplicator backgroundReplicator = disableBackgroundReplicator ? null : new BackgroundReplicator();
+            if (disableBackgroundReplicator) {
+                log.info("Background replicator disabled");
+            }
             App.getInstance().addFriends(parseFriends());
             server.start();
             log.info("Start server " + baseURI.toString());
@@ -361,7 +378,12 @@ public class App {
             Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    backgroundReplicator.close();
+                    if (backgroundReplicator != null) {
+                        backgroundReplicator.close();
+                    }
+                    if (asyncRunnableExecutor != null) {
+                        asyncRunnableExecutor.close();
+                    }
                     getInstance().close();
                 }
             }));

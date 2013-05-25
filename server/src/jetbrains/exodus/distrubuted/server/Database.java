@@ -141,8 +141,9 @@ public class Database {
             }
         }
         ctx.setFutures(futures);
+        ValueTimeStampTuple result = null;
         try {
-            final ValueTimeStampTuple result = ctx.get(1000, TimeUnit.MILLISECONDS);
+            result = ctx.get(1000, TimeUnit.MILLISECONDS);
             log.info("Get replicated successfully");
             if (result == null) {
                 log.info("No data by key at all: " + key);
@@ -159,6 +160,18 @@ public class Database {
             throw new RuntimeException(e);
         } finally {
             ctx.cancel(true); // cancel other jobs
+            if (result != null && (seed == null || seed.getTimeStamp() < result.getTimeStamp())) {
+                final String value = result.getValue();
+                final long timeStamp =  result.getTimeStamp();
+                app.executeAsync(new Runnable() {
+                    @Override
+                    public void run() {
+                        log.info("Async remember key: " + key);
+                        putLocally(ns, key, value, timeStamp);
+                    }
+                });
+            }
+
         }
     }
 
