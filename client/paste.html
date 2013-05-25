@@ -242,11 +242,10 @@
                     console.info("========");
                     $.each(dexodus.recent, function(index, value) {
                         console.info(value);
-                        var p = it.getPermaLink(value);
                         if (value == $("#key").val()) {
                             value = "<b>" + value + "</b>";
                         }
-                        var content = p == "" ? value : "<a href='" + p + "'>" + value + "</a>";
+                        var content = "<a class ='rf' href='javascript:void(0)'>" + value + "</a>";
                         html +=  "<li>" + content + "</li>";
                     });
                     console.info("========");
@@ -282,6 +281,16 @@
             $("#submit").click(function(){
                 dexodus.paste();
                 return true;
+            });
+
+            $(document).on("click", ".rf", function(e){
+                var key = $(e.target).text();
+                $("#key").val(key);
+                dexodus.permalink(key);
+                dexodus.take("java", key, function(data) {
+                    $("#paste").val(data);
+                });
+                return false;
             });
 
             $("#load").click(function() {
