@@ -38,6 +38,8 @@
 
                 urls: ["http://172.20.208.215:8080/", "http://172.20.240.195:8082/", "http://172.20.208.216:8080/"],
 
+                recent: [],
+
                 getRandomUrl: function() {
                     if (this.urls.length <= 0) {
                         if (window.confirm("All known servers are down. Reload page and try again?")) {
@@ -92,6 +94,15 @@
                             done(data);
                         }).error(function(jqXHR, textStatus, error) {
                             window.alert(textStatus + ":" + error);
+                        })
+                    });
+                },
+
+                takeSilent: function(ns, key, done) {
+                    var it = this;
+                    this.selectHost(function() {
+                        $.ajax(it.getUrl(ns, key)).done(function(data) {
+                            done(data);
                         })
                     });
                 },
@@ -154,6 +165,18 @@
                     });
                 },
 
+                updateRecent: function() {
+                    var it = this;
+                    this.takeSilent("lists", "recent", function(data) {
+                        dexodus.recent = [];
+                        $.each(data.split(","), function(index, value) {
+                            console.info("Add recent " + value);
+                            dexodus.recent.push(value);
+                            dexodus.printRecent();
+                        });
+                    });
+                },
+
                 generateKey: function() {
                     return ("0000" + (Math.random() * Math.pow(36,4) << 0).toString(36)).substr(-4);
                 },
@@ -167,6 +190,13 @@
                             $("#viewPaste").val(data);
                         });
                     });
+                    var recent = [key];
+                    for (i = 0; i < Math.min(this.recent.length, 9); i++){
+                        recent.push(this.recent[i])
+                    }
+                    this.recent = recent;
+                    dexodus.printRecent();
+                    this.put("lists", "recent", this.recent.join(","), function() {});
                 },
 
                 permalink: function(key) {
@@ -191,13 +221,32 @@
 
                     html += "</ol>"
                     $("#servers").html(html);
+                },
+
+                printRecent: function() {
+                    var html = "<ol>";
+                    console.info("========");
+                    $.each(dexodus.recent, function(index, value) {
+                        console.info(value);
+                        html += "<li>" + value + "</li>";
+                    });
+                    console.info("========");
+
+                    html += "</ol>"
+                    $("#recent").html(html);
                 }
-            }
+            };
 
             dexodus.baseurl = dexodus.getRandomUrl();
             dexodus.updateFriends();
+            dexodus.updateRecent();
+
             window.setInterval(function() {
                 dexodus.updateFriends();
+            }, 5000);
+
+            window.setInterval(function() {
+                dexodus.updateRecent();
             }, 5000);
 
             window.setInterval(function() {
@@ -247,6 +296,9 @@
 <div class="container-fluid">
     <div class="row-fluid">
         <div class="span2">
+            <h3>Recent files</h3>
+            <div id="recent">
+            </div>
             <h3>Live servers</h3>
             <div id="servers">
             </div>
