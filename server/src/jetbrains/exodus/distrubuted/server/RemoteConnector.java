@@ -163,6 +163,7 @@ public class RemoteConnector {
         try {
             return future.get(timeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
+            log.warn("Interrupted: " + (future.cancel(true) ? "cancelled future" : "timed out future"));
             throw new RuntimeException(e);
         } catch (TimeoutException t) {
             log.info(future.cancel(true) ? "Cancelled future" : "Timed out future");
