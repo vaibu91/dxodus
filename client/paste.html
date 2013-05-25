@@ -161,18 +161,23 @@
                 paste: function() {
                     var key = $("#key").val() || dexodus.generateKey();
                     this.put("java", key, $("#paste").val(), function() {
-                        var l = dexodus.getRandomUrl();
-                        if (l != "") {
-                            var u = window.location.toString();
-                            if (u.indexOf("#") > 0) u = u.substring(0, u.indexOf("#"));
-                            l += u.substr(u.lastIndexOf("html"));
-                            var p = l + "#" + key;
-                            $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
-                            dexodus.take("java", key, function(data) {
-                                $("#viewPaste").val(data);
-                            });
-                        }
+                        dexodus.permalink(key);
+                        $("#key").val(key);
+                        dexodus.take("java", key, function(data) {
+                            $("#viewPaste").val(data);
+                        });
                     });
+                },
+
+                permalink: function(key) {
+                    var l = dexodus.getRandomUrl();
+                    if (l != "") {
+                        var u = window.location.toString();
+                        if (u.indexOf("#") > 0) u = u.substring(0, u.indexOf("#"));
+                        l += u.substr(u.lastIndexOf("html"));
+                        var p = l + "#" + key;
+                        $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
+                    }
                 },
 
                 printFriends: function(){
@@ -211,14 +216,20 @@
                 return true;
             });
 
+            $("#load").click(function() {
+                var key = $("#key").val();
+                dexodus.permalink(key);
+                dexodus.take("java", key, function(data) {
+                    $("#paste").val(data);
+                });
+            });
+
             // initial state
             var key = window.location.hash;
             if (key == undefined || key == null || key == "#" || key == "") {
                 //$("#pasteScreen").show();
             } else {
                 key = key.substring(1);
-                var p = window.location;
-                $("#permalink").html("Permalink: <a href='" + p + "'>" + p + "</a>");
                 $("#key").val(key);
                 dexodus.take("java", key, function(data) {
                     $("#paste").val(data);
@@ -255,8 +266,9 @@
                     <legend id="permalink">Edit Your Code</legend>
                     <div class="control-group">
                         <!--<label class="control-label" for="inputEmail">Email</label>-->
-                        <div class="controls">
-                            <input type="text" id="key" placeholder="Key">
+                        <div class="input-append">
+                            <input style="width:300px" class="span2" type="text" id="key" placeholder="Key">
+                            <button id="load" class="btn" type="button">Load</button>
                         </div>
                     </div>
                     <div class="control-group">
