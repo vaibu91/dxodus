@@ -243,6 +243,9 @@
                     $.each(dexodus.recent, function(index, value) {
                         console.info(value);
                         var p = it.getPermaLink(value);
+                        if (value == $("#key").val()) {
+                            value = "<b>" + value + "</b>";
+                        }
                         var content = p == "" ? value : "<a href='" + p + "'>" + value + "</a>";
                         html +=  "<li>" + content + "</li>";
                     });
