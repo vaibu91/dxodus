@@ -189,8 +189,16 @@
                         $("#message").text("Saved at " + new Date());
                     });
                     var recent = [key];
-                    for (i = 0; i < Math.min(this.recent.length, 9); i++){
-                        recent.push(this.recent[i])
+                    var added = 1;
+                    for (i = 0; i < this.recent.length; i++){
+                        var item = this.recent[i];
+                        if (recent.indexOf(item) == -1) {
+                            recent.push(item);
+                            added++;
+                        }
+                        if (added > 9) {
+                            break;
+                        }
                     }
                     this.recent = recent;
                     dexodus.printRecent();
