@@ -186,9 +186,7 @@
                     this.put("java", key, $("#paste").val(), function() {
                         dexodus.permalink(key);
                         $("#key").val(key);
-                        dexodus.take("java", key, function(data) {
-                            $("#viewPaste").val(data);
-                        });
+                        $("#message").text("Saved at " + new Date());
                     });
                     var recent = [key];
                     for (i = 0; i < Math.min(this.recent.length, 9); i++){
@@ -332,6 +330,7 @@
                     <div class="control-group">
                         <div class="controls">
                             <button id="submit" type="submit" class="btn btn-primary">Save</button>
+                            <span id="message"></span>
                         </div>
                     </div>
                 </fieldset>
