@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Class-Path: servlet-api-3.0-sources.jar servlet-api-3.0.jar exodus-1.0
+ .0-SNAPSHOT-sources.jar exodus-1.0.0-SNAPSHOT.jar openapi-1.0.0-SNAPS
+ HOT-sources.jar openapi-1.0.0-SNAPSHOT.jar utils-1.0.0-SNAPSHOT-sourc
+ es.jar utils-1.0.0-SNAPSHOT-tests.jar utils-1.0.0-SNAPSHOT.jar asm-3.
+ 1.jar jackson-core-asl-1.9.2.jar jackson-jaxrs-1.9.2.jar jackson-mapp
+ er-asl-1.9.2.jar jackson-xc-1.9.2.jar jersey-client-1.17.1-sources.ja
+ r jersey-client-1.17.1.jar jersey-core-1.17.1-sources.jar jersey-core
+ -1.17.1.jar jersey-json-1.17.1-sources.jar jersey-json-1.17.1.jar jer
+ sey-server-1.17.1-sources.jar jersey-server-1.17.1.jar jersey-servlet
+ -1.17.1-sources.jar jersey-servlet-1.17.1.jar jersey-spring-1.17.1-so
+ urces.jar jersey-spring-1.17.1.jar jsr311-api-1.1.1.jar annotations.j
+ ar slf4j-api-1.7.2.jar logback-access-1.0.10-sources.jar logback-core
+ -1.0.10.jar logback-classic-1.0.10.jar logback-core-1.0.10-sources.ja
+ r jcl-over-slf4j-1.7.4.jar logback-access-1.0.10.jar logback-classic-
+ 1.0.10-sources.jar
+Main-Class: jetbrains.exodus.distrubuted.server.App
+

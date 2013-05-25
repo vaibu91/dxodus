@@ -1,0 +1,15 @@
+<component name="ArtifactManager">
+  <artifact name="server:jar">
+    <output-path>$PROJECT_DIR$/distr</output-path>
+    <root id="root">
+      <element id="archive" name="server.jar">
+        <element id="module-output" name="server" />
+      </element>
+      <element id="library" level="project" name="servlet-api" />
+      <element id="library" level="project" name="exodus" />
+      <element id="library" level="project" name="jersey" />
+      <element id="library" level="project" name="annotations" />
+      <element id="library" level="project" name="logback" />
+    </root>
+  </artifact>
+</component>
