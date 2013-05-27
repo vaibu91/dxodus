@@ -19,13 +19,23 @@ To connect to database cluster, you need to get url from startup logs:
 API
 ===
 To put key into database:
-
-/get/{ns}/{key}
-
+HTTP GET /get/{ns}/{key}
 Where {ns} is namespace name and {key} is a data key.
 
-To get key from database:
-/get/{ns}/{key}
+$.ajax("http://host:port/myns/mykey").done(function(data) {
+    done(data);
+})
+
+To put key,value into database:
+HTTP POST /get/{ns}/{key}
+with form encoded param "value".
+
+$.ajax({url: "http://host:port/myns/mykey",
+        type: "POST",
+        data: {
+          value: value
+        }
+})
 
 To get database friend nodes:
 /friends
