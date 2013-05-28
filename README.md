@@ -32,7 +32,7 @@ To put key,value into database: `HTTP POST /get/{ns}/{key}` with form encoded pa
         data: {
           value: "myvalue"
         }
-})
+    })
 
 To get database friend nodes:
 /friends
