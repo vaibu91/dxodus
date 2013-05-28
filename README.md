@@ -19,10 +19,10 @@ To connect to database cluster, you need to get url from startup logs:
 
 API
 ===
-To put key into database: `HTTP GET /get/{ns}/{key}` where {ns} as a namespace name and {key} is a data key.
+To get key value from database: `HTTP GET /get/{ns}/{key}` where {ns} as a namespace name and {key} is a data key.
 
     $.ajax("http://host:port/myns/mykey").done(function(data) {
-        done(data);
+        window.alert(data);
     })
 
 To put key,value into database: `HTTP POST /get/{ns}/{key}` with form encoded param "value".
